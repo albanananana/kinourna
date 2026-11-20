@@ -169,10 +169,7 @@ export function getStore(): Store {
     // found". Refuse loudly instead of half-working.
     if (process.env.VERCEL) {
       console.error("[kinourna] Supabase env vars are missing on Vercel.");
-      throw new ApiError(
-        503,
-        "Сервер не подключён к базе: добавь ключи Supabase в Vercel → Settings → Environment Variables и пересобери проект.",
-      );
+      throw new ApiError(503, "dbMissing");
     }
     store = new MemoryStore();
   }

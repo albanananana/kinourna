@@ -1,4 +1,17 @@
 import type { ReactNode } from "react";
+import type { Parts } from "@/lib/i18n";
+
+/** Renders a dictionary heading with its accent word in red. */
+export function Accent({ parts }: { parts: Parts }) {
+  const [before, accent, after] = parts;
+  return (
+    <>
+      {before}
+      <span className="text-signal">{accent}</span>
+      {after}
+    </>
+  );
+}
 
 /** Sticky bottom bar — the thumb zone on phones. */
 export function ActionBar({ children, note }: { children?: ReactNode; note?: ReactNode }) {

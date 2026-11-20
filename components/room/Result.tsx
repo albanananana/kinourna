@@ -2,9 +2,10 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
-import { joinNames, plural } from "@/lib/ru";
+import { TMDB_LANG, filmMeta, filmOverview, filmSubtitle, filmTitle, formatRating, joinNames } from "@/lib/i18n";
 import { backdropUrl, posterUrl } from "@/lib/tmdb-image";
 import type { BoardFilm, Result as ResultT } from "@/lib/types";
+import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Bulbs } from "../ui/Bulbs";
 import { Button } from "../ui/Button";
@@ -14,7 +15,6 @@ import { Ticket } from "../ui/Ticket";
 import { ActionBar, Page } from "./ActionBar";
 import { useBusy, useRoomCtx, useTwoStep } from "./context";
 import { Drum } from "./Drum";
-import { metaLine } from "./FilmCard";
 
 const INTRO_MS: Record<ResultT["via"], number> = { urn: 3000, vote: 2300, strike: 1500 };
 
@@ -42,6 +42,7 @@ export function Result() {
 /* ------------------------------------------------------------------ */
 
 function Intro({ result, film, board, onSkip }: { result: ResultT; film: BoardFilm; board: BoardFilm[]; onSkip: () => void }) {
+  const { t } = useI18n();
   const [ticketOut, setTicketOut] = useState(false);
   useEffect(() => {
     if (result.via !== "urn") return;
@@ -53,12 +54,12 @@ function Intro({ result, film, board, onSkip }: { result: ResultT; film: BoardFi
     <button
       type="button"
       onClick={onSkip}
-      aria-label="Пропустить анимацию"
+      aria-label={t.room.skipAnimation}
       className="flex flex-1 cursor-default flex-col items-center justify-center px-5 py-16 text-center"
     >
       {result.via === "urn" && (
         <div className="relative flex flex-col items-center">
-          <p className="label text-amber">{ticketOut ? "Вытянули!" : <span className="dots">Крутим барабан</span>}</p>
+          <p className="label text-amber">{ticketOut ? t.result.drawn : <span className="dots">{t.result.spinning}</span>}</p>
           <div className="relative mt-6 h-[300px] w-[280px]">
             <motion.div
               className="absolute inset-0 flex justify-center"
@@ -85,7 +86,7 @@ function Intro({ result, film, board, onSkip }: { result: ResultT; film: BoardFi
 
       {result.via === "strike" && (
         <div className="flex flex-col items-center">
-          <p className="label text-amber">Остался последний</p>
+          <p className="label text-amber">{t.result.lastOne}</p>
           <motion.div
             className="mt-6 w-[200px]"
             initial={{ scale: 0.6, opacity: 0, rotate: 6 }}
@@ -101,20 +102,21 @@ function Intro({ result, film, board, onSkip }: { result: ResultT; film: BoardFi
 }
 
 function VoteCount({ result, board }: { result: ResultT; board: BoardFilm[] }) {
+  const { t, lang } = useI18n();
   const tally = result.tally ?? {};
   const top = [...board].sort((a, b) => (tally[b.key] ?? 0) - (tally[a.key] ?? 0)).slice(0, 5);
   const max = Math.max(1, ...Object.values(tally));
   return (
     <div className="w-full max-w-md text-left">
       <p className="label text-center text-amber">
-        <span className="dots">Считаем голоса</span>
+        <span className="dots">{t.result.counting}</span>
       </p>
       <ul className="mt-8 space-y-3">
         {top.map((f, i) => (
           <li key={f.key} className="flex items-center gap-3">
             <Poster film={f} size="w92" rounded="rounded" className="w-8 shrink-0" />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] text-muted">{f.title}</div>
+              <div className="truncate text-[13px] text-muted">{filmTitle(f, lang)}</div>
               <motion.div
                 className={`mt-1 h-2 rounded-full ${f.key === result.key ? "bg-amber" : "bg-ink-3"}`}
                 initial={{ width: 0 }}
@@ -132,14 +134,17 @@ function VoteCount({ result, board }: { result: ResultT; board: BoardFilm[] }) {
 /* ------------------------------------------------------------------ */
 
 function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
+  const { t, lang } = useI18n();
+  const title = filmTitle(film, lang);
+  const overview = filmOverview(film, lang);
   const { state, isHost, players } = useRoomCtx();
   const { busy, go } = useBusy();
   const { armed, confirm } = useTwoStep();
   const authorIds = result.authors[film.key] ?? [];
   const authors = authorIds.map((id) => players.get(id)).filter((p) => !!p);
   const bg = backdropUrl(film.backdrop) ?? posterUrl(film.poster, "w780");
-  const trailer = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${film.enTitle ?? film.title} ${film.year ?? ""} trailer`)}`;
-  const tmdb = film.tmdbId && film.mediaType ? `https://www.themoviedb.org/${film.mediaType}/${film.tmdbId}?language=ru` : undefined;
+  const trailer = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${film.t?.en?.title ?? film.originalTitle ?? film.title} ${film.year ?? ""} trailer`)}`;
+  const tmdb = film.tmdbId && film.mediaType ? `https://www.themoviedb.org/${film.mediaType}/${film.tmdbId}?language=${TMDB_LANG[lang]}` : undefined;
   const excluded = state.play?.kind === "urn" ? state.play.excluded : [];
   const urnLeft = state.board.filter((f) => f.key !== film.key && !excluded.includes(f.key)).length;
 
@@ -165,23 +170,14 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
             </motion.div>
 
             <div>
-              <p className="label text-amber">Сегодня смотрим</p>
+              <p className="label text-amber">{t.result.tonight}</p>
               <h1 className="display mt-3 text-[clamp(54px,13vw,124px)] [text-wrap:balance]">
-                <SplitFlap text={film.title} settleMs={450} stagger={42} />
+                <SplitFlap text={title} settleMs={450} stagger={42} />
               </h1>
               <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
-                {[film.enTitle ?? film.originalTitle, metaLine(film), film.rating ? `★ ${film.rating.toFixed(1)}` : null].filter(Boolean).join("  ·  ")}
+                {[filmSubtitle(film, lang), filmMeta(film, t), film.rating ? `★ ${formatRating(lang, film.rating)}` : null].filter(Boolean).join("  ·  ")}
               </p>
-              {film.overview && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="mt-5 max-w-[62ch] text-[16px] leading-relaxed text-cream/80"
-                >
-                  {film.overview}
-                </motion.p>
-              )}
+              {overview && <Overview text={overview} label={t.result.more} />}
 
               {authors.length > 0 && (
                 <motion.div
@@ -190,7 +186,7 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
                   transition={{ delay: 0.9 }}
                   className="mt-6 flex flex-wrap items-center gap-3"
                 >
-                  <span className="label">{authors.length > 1 ? "Загадали" : "Чей билет"}</span>
+                  <span className="label">{authors.length > 1 ? t.result.pickedBy : t.result.whoseTicket}</span>
                   {authors.map((p) => (
                     <span key={p.id} className="flex items-center gap-2 rounded-full bg-ink-0/60 py-1 pl-1 pr-3 text-[14px] backdrop-blur">
                       <Avatar player={p} size={24} />
@@ -205,11 +201,11 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
                   <svg width="12" height="14" viewBox="0 0 12 14" aria-hidden>
                     <path d="M0 0l12 7-12 7z" fill="currentColor" />
                   </svg>
-                  Трейлер
+                  {t.result.trailer}
                 </a>
                 {tmdb && (
                   <a href={tmdb} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center rounded-md border border-line-strong bg-ink-0/40 px-4 font-display text-[19px] font-bold uppercase backdrop-blur transition hover:border-cream/50">
-                    Подробнее на TMDB
+                    {t.result.moreTmdb}
                   </a>
                 )}
               </div>
@@ -222,20 +218,20 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
         <Details result={result} film={film} />
       </Page>
 
-      <ActionBar note={isHost ? undefined : "Приятного просмотра. Ведущий может перетянуть или начать новый раунд."}>
+      <ActionBar note={isHost ? undefined : t.result.guestNote}>
         {isHost && result.via === "urn" && urnLeft > 0 && (
           <Button variant="ghost" size="sm" className="h-11 md:h-12 md:text-[21px]" busy={busy === "redraw"} onClick={() => go("redraw", { type: "redraw" })}>
-            Перетянуть
+            {t.result.redraw}
           </Button>
         )}
         {isHost && (
           <Button variant="ghost" size="sm" className="h-11 md:h-12 md:text-[21px]" busy={busy === "board"} onClick={() => go("board", { type: "backToBoard" })}>
-            Другой режим
+            {t.result.otherMode}
           </Button>
         )}
         {isHost && (
           <Button size="sm" className="h-11 md:h-12 md:text-[21px]" busy={busy === "round"} onClick={() => confirm("round", () => go("round", { type: "newRound" }))}>
-            {armed === "round" ? "Точно? Всё заново" : "Новый раунд"}
+            {armed === "round" ? t.result.newRoundSure : t.result.newRound}
           </Button>
         )}
       </ActionBar>
@@ -245,7 +241,12 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
 
 function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
   const { state, players } = useRoomCtx();
+  const { t, lang } = useI18n();
   const byKey = new Map(state.board.map((f) => [f.key, f]));
+  const nameOf = (key: string) => {
+    const f = byKey.get(key);
+    return f ? filmTitle(f, lang) : "?";
+  };
 
   // Everyone's picks, revealed at last.
   const picks = state.players
@@ -257,7 +258,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
       <div>
         {result.via === "vote" && result.tally && (
           <>
-            <p className="label">Как голосовали</p>
+            <p className="label">{t.result.howVoted}</p>
             <ul className="mt-4 space-y-2.5">
               {[...state.board]
                 .sort((a, b) => (result.tally![b.key] ?? 0) - (result.tally![a.key] ?? 0))
@@ -266,7 +267,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
                   const max = Math.max(1, ...Object.values(result.tally!));
                   return (
                     <li key={f.key} className="flex items-center gap-3">
-                      <span className="w-[42%] truncate text-[14px] text-cream/85">{f.title}</span>
+                      <span className="w-[42%] truncate text-[14px] text-cream/85">{filmTitle(f, lang)}</span>
                       <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-2">
                         <span className={`block h-full rounded-full ${f.key === film.key ? "bg-amber" : "bg-muted/40"}`} style={{ width: `${(n / max) * 100}%` }} />
                       </span>
@@ -277,7 +278,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
             </ul>
             {result.tied && result.tied.length > 1 && (
               <p className="mt-4 text-[14px] text-muted">
-                Ничья: {joinNames(result.tied.map((k) => `«${byKey.get(k)?.title ?? "?"}»`))} — решила урна.
+                {t.result.tie(joinNames(t, result.tied.map((k) => t.quote(nameOf(k)))))}
               </p>
             )}
           </>
@@ -285,12 +286,12 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
 
         {result.via === "strike" && state.play?.kind === "strike" && (
           <>
-            <p className="label">Как вычёркивали</p>
+            <p className="label">{t.result.howStruck}</p>
             <ol className="mt-4 space-y-2">
               {state.play.struck.map((s, i) => (
                 <li key={s.key} className="flex items-baseline gap-3 text-[14px]">
                   <span className="w-6 font-mono text-[11px] text-dim">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="flex-1 truncate text-cream/60 line-through decoration-signal/70">{byKey.get(s.key)?.title}</span>
+                  <span className="flex-1 truncate text-cream/60 line-through decoration-signal/70">{nameOf(s.key)}</span>
                   <span className="text-muted">{players.get(s.by)?.name ?? "—"}</span>
                 </li>
               ))}
@@ -300,16 +301,16 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
 
         {result.via === "urn" && (
           <>
-            <p className="label">Жребий</p>
+            <p className="label">{t.result.draw}</p>
             <p className="mt-3 text-[15px] leading-relaxed text-muted">
               {(() => {
                 const excluded = state.play?.kind === "urn" ? state.play.excluded : [];
                 const pool = state.board.filter((f) => !excluded.includes(f.key));
                 const total = pool.reduce((s, f) => s + f.weight, 0);
-                return `Шанс был ${film.weight} из ${total} ${plural(total, ["билета", "билетов", "билетов"])}.`;
+                return t.result.chance(film.weight, total);
               })()}
               {state.play?.kind === "urn" && state.play.excluded.length > 0 && (
-                <> Перетягивали: {joinNames(state.play.excluded.map((k) => `«${byKey.get(k)?.title ?? "?"}»`))}.</>
+                <>{t.result.redrawn(joinNames(t, state.play.excluded.map((k) => t.quote(nameOf(k)))))}</>
               )}
             </p>
           </>
@@ -318,7 +319,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
 
       {picks.length > 0 && (
         <div>
-          <p className="label">Кто что загадал</p>
+          <p className="label">{t.result.whoPickedWhat}</p>
           <ul className="mt-4 space-y-4">
             {picks.map(({ player, films }) => (
               <li key={player.id} className="flex items-start gap-3">
@@ -327,7 +328,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
                   <div className="text-[14px]">{player.name}</div>
                   <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
                     {films.map((f) => (
-                      <div key={f.key} className={`w-12 shrink-0 ${f.key === film.key ? "" : "opacity-55"}`} title={f.title}>
+                      <div key={f.key} className={`w-12 shrink-0 ${f.key === film.key ? "" : "opacity-55"}`} title={filmTitle(f, lang)}>
                         <Poster film={f} size="w92" rounded="rounded" className={f.key === film.key ? "ring-2 ring-amber" : ""} />
                       </div>
                     ))}
@@ -339,5 +340,25 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Long TMDB overviews fold to six lines on phones, with a tap to read on. */
+function Overview({ text, label }: { text: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 280;
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-5 max-w-[62ch]">
+      <p className={`text-[16px] leading-relaxed text-cream/80 ${long && !open ? "line-clamp-6 md:line-clamp-none" : ""}`}>{text}</p>
+      {long && !open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-amber hover:text-cream md:hidden"
+        >
+          {label}
+        </button>
+      )}
+    </motion.div>
   );
 }

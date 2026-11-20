@@ -19,10 +19,12 @@ import {
   tallyVotes,
   type Rng,
 } from "../game";
-import type { Action, Film, MeData, Player, RoomState, Session } from "../types";
+import { LOCALES } from "../i18n/config";
+import type { Action, Film, Loc, MeData, Player, RoomState, Session } from "../types";
 import { newPlayerId, signSession, verifySession } from "./auth";
 import { ApiError } from "./errors";
 import { getStore } from "./store";
+import { localizedDetails } from "./tmdb";
 
 const rng: Rng = (n) => (n <= 1 ? 0 : randomInt(n));
 
@@ -31,7 +33,7 @@ const ROOM_ROW = "__room";
 
 export { ApiError };
 
-const NOT_FOUND = () => new ApiError(404, "Комната не найдена — проверь код.");
+const NOT_FOUND = () => new ApiError(404, "notFound");
 
 async function load(code: string): Promise<RoomState> {
   if (!isValidCode(code)) throw NOT_FOUND();
@@ -56,12 +58,12 @@ async function mutate(code: string, fn: (state: RoomState) => RoomState | null):
     if (await store.replace(code, row.version, next)) return next;
     await new Promise((r) => setTimeout(r, 15 + Math.random() * 60));
   }
-  throw new ApiError(503, "Слишком много одновременных действий, попробуй ещё раз.");
+  throw new ApiError(503, "busy");
 }
 
 function requireName(raw: unknown): string {
   const name = typeof raw === "string" ? cleanName(raw) : "";
-  if (!name) throw new ApiError(400, "Как тебя зовут?");
+  if (!name) throw new ApiError(400, "needName");
   return name;
 }
 
@@ -74,7 +76,7 @@ export async function createRoom(rawName: unknown): Promise<{ state: RoomState; 
     const state = initialState(code, host, Date.now());
     if (await store.create(code, state)) return { state, session: signSession(code, host.id) };
   }
-  throw new ApiError(503, "Не получилось создать комнату, попробуй ещё раз.");
+  throw new ApiError(503, "createFailed");
 }
 
 export async function getRoom(code: string): Promise<RoomState> {
@@ -93,7 +95,7 @@ export async function joinRoom(
   const name = requireName(rawName);
   const id = newPlayerId();
   const state = await mutate(code, (s) => {
-    if (s.players.length >= MAX_PLAYERS) throw new ApiError(409, "В комнате уже нет мест.");
+    if (s.players.length >= MAX_PLAYERS) throw new ApiError(409, "roomFull");
     const taken = new Set(s.players.map((p) => p.name.toLowerCase()));
     let finalName = name;
     for (let n = 2; taken.has(finalName.toLowerCase()); n++) finalName = `${name} ${n}`;
@@ -104,9 +106,9 @@ export async function joinRoom(
 }
 
 function authorize(code: string, state: RoomState, session: Partial<Session>): string {
-  if (!verifySession(code, session)) throw new ApiError(401, "Сессия не найдена — зайди в комнату заново.");
+  if (!verifySession(code, session)) throw new ApiError(401, "noSession");
   if (!state.players.some((p) => p.id === session.playerId)) {
-    throw new ApiError(403, "Тебя нет в этой комнате — зайди заново.");
+    throw new ApiError(403, "notInRoom");
   }
   return session.playerId;
 }
@@ -129,15 +131,39 @@ export async function getMe(code: string, session: Partial<Session>): Promise<Me
 const POSTER_RE = /^\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/;
 const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined);
 
+function sanitizeLocs(raw: unknown): Film["t"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Film["t"] = {};
+  for (const lang of LOCALES) {
+    const l = (raw as Record<string, unknown>)[lang] as Record<string, unknown> | undefined;
+    if (!l || typeof l !== "object") continue;
+    const poster = typeof l.poster === "string" && POSTER_RE.test(l.poster) ? l.poster : undefined;
+    const loc: Loc = { title: str(l.title, 120), overview: str(l.overview, 700), poster };
+    if (loc.title || loc.overview || loc.poster) out[lang] = loc;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * For TMDB titles, swap browser-supplied text for TMDB's own record — with
+ * names and overviews in every UI language — keeping the poster the player saw.
+ */
+async function enrichFilm(film: Film): Promise<Film> {
+  if (!film.tmdbId || !film.mediaType) return film;
+  const rich = await localizedDetails(film.mediaType, film.tmdbId);
+  if (!rich) return film;
+  return { ...rich, title: film.title || rich.title, poster: film.poster ?? rich.poster, t: { ...film.t, ...rich.t } };
+}
+
 /** Never trust a film object coming from the browser. */
 function sanitizeFilm(raw: unknown): Film {
   const f = (raw ?? {}) as Record<string, unknown>;
   const title = str(f.title, 120);
-  if (!title) throw new ApiError(400, "У фильма нет названия.");
+  if (!title) throw new ApiError(400, "noTitle");
   const mediaType = f.mediaType === "movie" || f.mediaType === "tv" ? f.mediaType : undefined;
   const tmdbId = typeof f.tmdbId === "number" && Number.isInteger(f.tmdbId) && f.tmdbId > 0 ? f.tmdbId : undefined;
   const key = mediaType && tmdbId ? `${mediaType}:${tmdbId}` : manualKey(title);
-  if (key === "manual:") throw new ApiError(400, "Название слишком странное.");
+  if (key === "manual:") throw new ApiError(400, "badTitle");
   const poster = typeof f.poster === "string" && POSTER_RE.test(f.poster) ? f.poster : undefined;
   const backdrop = typeof f.backdrop === "string" && POSTER_RE.test(f.backdrop) ? f.backdrop : undefined;
   const year = typeof f.year === "string" && /^\d{4}$/.test(f.year) ? f.year : undefined;
@@ -147,7 +173,7 @@ function sanitizeFilm(raw: unknown): Film {
     tmdbId,
     mediaType,
     title,
-    enTitle: str(f.enTitle, 120),
+    t: sanitizeLocs(f.t),
     originalTitle: str(f.originalTitle, 120),
     year,
     poster,
@@ -186,7 +212,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
   const store = getStore();
 
   const hostOnly = (s: RoomState) => {
-    if (s.hostId !== me) throw new ApiError(403, "Это может сделать только ведущий.");
+    if (s.hostId !== me) throw new ApiError(403, "hostOnly");
   };
 
   switch (action.type) {
@@ -205,7 +231,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       hostOnly(snapshot);
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "lobby" && s.phase !== "collect") throw new ApiError(409, "Настройки уже не поменять.");
+          if (s.phase !== "lobby" && s.phase !== "collect") throw new ApiError(409, "settingsLocked");
           const { perPlayer, allowOwn } = action.settings ?? {};
           if (typeof perPlayer === "number") {
             s.settings.perPlayer = Math.min(MAX_PER_PLAYER, Math.max(1, Math.round(perPlayer)));
@@ -230,14 +256,14 @@ export async function act(code: string, session: Partial<Session>, action: Actio
 
     case "addFilm":
     case "removeFilm": {
-      if (snapshot.phase !== "collect") throw new ApiError(409, "Сейчас нельзя менять фильмы.");
+      if (snapshot.phase !== "collect") throw new ApiError(409, "filmsLocked");
       const films = (await store.getSecret<Film[]>(code, me, "films")) ?? [];
       let next = films;
       if (action.type === "addFilm") {
-        const film = sanitizeFilm(action.film);
-        if (films.some((f) => f.key === film.key)) throw new ApiError(409, "Этот фильм уже в твоём списке.");
+        const film = await enrichFilm(sanitizeFilm(action.film));
+        if (films.some((f) => f.key === film.key)) throw new ApiError(409, "alreadyPicked");
         if (films.length >= snapshot.settings.perPlayer) {
-          throw new ApiError(409, `Можно загадать не больше ${snapshot.settings.perPlayer}.`);
+          throw new ApiError(409, "limit", { n: snapshot.settings.perPlayer });
         }
         next = [...films, film];
       } else {
@@ -245,7 +271,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       }
       await store.putSecret(code, me, "films", next);
       const state = await mutate(code, (s) => {
-        if (s.phase !== "collect") throw new ApiError(409, "Урну уже открыли.");
+        if (s.phase !== "collect") throw new ApiError(409, "urnOpened");
         s.counts[me] = next.length;
         return s;
       });
@@ -261,7 +287,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
         subs.filter((s) => players.has(s.playerId)).map((s) => ({ playerId: s.playerId, films: s.data })),
         rng,
       );
-      if (board.length < 2) throw new ApiError(409, "В урне меньше двух фильмов — загадайте ещё.");
+      if (board.length < 2) throw new ApiError(409, "needTwo");
       await store.putSecret(code, ROOM_ROW, "authors", authors);
       return {
         state: await mutate(code, (s) => {
@@ -279,12 +305,12 @@ export async function act(code: string, session: Partial<Session>, action: Actio
     case "startMode": {
       hostOnly(snapshot);
       const mode = action.mode;
-      if (mode !== "urn" && mode !== "vote" && mode !== "strike") throw new ApiError(400, "Неизвестный режим.");
+      if (mode !== "urn" && mode !== "vote" && mode !== "strike") throw new ApiError(400, "unknownMode");
       if (mode === "vote") await store.deleteSecrets(code, ["vote"]);
       const authors = mode === "strike" ? await authorsOf(code) : {};
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "board") throw new ApiError(409, "Сначала откройте урну.");
+          if (s.phase !== "board") throw new ApiError(409, "openUrnFirst");
           s.mode = mode;
           s.result = undefined;
           if (mode === "urn") {
@@ -319,7 +345,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
             s.play.excluded = [...s.play.excluded, s.result.key];
           }
           const key = drawFromUrn(s.board, s.play.excluded, rng);
-          if (!key) throw new ApiError(409, "В урне больше не осталось билетов.");
+          if (!key) throw new ApiError(409, "urnEmpty");
           s.phase = "result";
           s.result = { key, via: "urn", at: Date.now(), authors };
           return s;
@@ -329,9 +355,9 @@ export async function act(code: string, session: Partial<Session>, action: Actio
 
     case "vote": {
       if (snapshot.phase !== "play" || snapshot.play?.kind !== "vote") {
-        throw new ApiError(409, "Голосование уже закончилось.");
+        throw new ApiError(409, "voteOver");
       }
-      if (!snapshot.play.voters.includes(me)) throw new ApiError(403, "Голосование началось до твоего прихода.");
+      if (!snapshot.play.voters.includes(me)) throw new ApiError(403, "voteLate");
       const boardKeys = new Set(snapshot.board.map((f) => f.key));
       let keys = [...new Set((action.keys ?? []).filter((k) => typeof k === "string" && boardKeys.has(k)))];
       if (!snapshot.settings.allowOwn) {
@@ -340,7 +366,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       }
       await store.putSecret(code, me, "vote", keys);
       let state = await mutate(code, (s) => {
-        if (s.phase !== "play" || s.play?.kind !== "vote") throw new ApiError(409, "Голосование уже закончилось.");
+        if (s.phase !== "play" || s.play?.kind !== "vote") throw new ApiError(409, "voteOver");
         if (!s.play.voted.includes(me)) s.play.voted.push(me);
         return s;
       });
@@ -360,10 +386,10 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       const authors = await authorsOf(code);
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "play" || s.play?.kind !== "strike") throw new ApiError(409, "Вычёркивание уже закончилось.");
-          if (currentStriker(s.play) !== me) throw new ApiError(409, "Сейчас не твой ход.");
+          if (s.phase !== "play" || s.play?.kind !== "strike") throw new ApiError(409, "strikeOver");
+          if (currentStriker(s.play) !== me) throw new ApiError(409, "notYourTurn");
           if (!remainingAfterStrikes(s.board, s.play).some((f) => f.key === action.key)) {
-            throw new ApiError(409, "Этот фильм уже вычеркнули.");
+            throw new ApiError(409, "alreadyStruck");
           }
           const { play, winner } = applyStrike(s.board, s.play, action.key, me);
           s.play = play;
@@ -380,7 +406,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       hostOnly(snapshot);
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "play" || s.play?.kind !== "strike") throw new ApiError(409, "Сейчас нечего пропускать.");
+          if (s.phase !== "play" || s.play?.kind !== "strike") throw new ApiError(409, "nothingToSkip");
           s.play.turn = (s.play.turn + 1) % Math.max(1, s.play.order.length);
           return s;
         }),
@@ -391,7 +417,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       hostOnly(snapshot);
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "play" && s.phase !== "result") throw new ApiError(409, "Сейчас нельзя вернуться к доске.");
+          if (s.phase !== "play" && s.phase !== "result") throw new ApiError(409, "cantGoBack");
           s.phase = "board";
           s.play = undefined;
           s.result = undefined;
@@ -420,7 +446,7 @@ export async function act(code: string, session: Partial<Session>, action: Actio
 
     case "kick": {
       hostOnly(snapshot);
-      if (action.playerId === me) throw new ApiError(400, "Себя выгнать нельзя.");
+      if (action.playerId === me) throw new ApiError(400, "cantKickSelf");
       let state = await mutate(code, (s) => {
         s.players = s.players.filter((p) => p.id !== action.playerId);
         delete s.counts[action.playerId];
@@ -439,6 +465,6 @@ export async function act(code: string, session: Partial<Session>, action: Actio
     }
 
     default:
-      throw new ApiError(400, "Неизвестное действие.");
+      throw new ApiError(400, "badAction");
   }
 }

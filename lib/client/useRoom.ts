@@ -18,7 +18,7 @@ export function useRoom(code: string) {
   const [status, setStatus] = useState<RoomStatus>("loading");
   const [session, setSessionState] = useState<Session | null>(null);
   const [me, setMe] = useState<MeData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RequestError | null>(null);
   const rev = useRef(0);
   const misses = useRef(0);
 
@@ -59,7 +59,7 @@ export function useRoom(code: string) {
       .catch((err) => {
         if (cancelled) return;
         if (err instanceof RequestError && err.status === 404) setStatus("missing");
-        else setError((err as Error).message);
+        else setError(err instanceof RequestError ? err : new RequestError(0, "generic"));
       });
     return () => {
       cancelled = true;
@@ -124,7 +124,7 @@ export function useRoom(code: string) {
 
   const act = useCallback(
     async (action: Action) => {
-      if (!session) throw new RequestError(401, "Сначала войди в комнату.");
+      if (!session) throw new RequestError(401, "joinFirst");
       const res = await api.act(code, session, action);
       accept(res.state);
       if (res.me) setMe(res.me);

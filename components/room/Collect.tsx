@@ -4,19 +4,20 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
 import { manualKey } from "@/lib/game";
-import { filmsWord, joinNames } from "@/lib/ru";
+import { filmMeta, filmSubtitle, filmTitle, formatRating, joinNames } from "@/lib/i18n";
 import type { Film } from "@/lib/types";
+import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { Poster } from "../ui/Poster";
 import { EmptyTicket, Ticket } from "../ui/Ticket";
-import { ActionBar, Heading, Page } from "./ActionBar";
+import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
-import { metaLine } from "./FilmCard";
 
 export function Collect() {
   const { state, me, isHost, myId } = useRoomCtx();
   const { busy, go } = useBusy();
+  const { t } = useI18n();
   const { perPlayer } = state.settings;
   const mine = me?.films ?? [];
   const full = mine.length >= perPlayer;
@@ -28,13 +29,9 @@ export function Collect() {
     <>
       <Page>
         <Heading
-          kicker={state.round > 1 ? `Раунд ${state.round} · тайный выбор` : "Тайный выбор"}
-          title={
-            <>
-              Загадай {perPlayer} <span className="text-signal">{filmsWord(perPlayer)}</span>
-            </>
-          }
-          sub="Никто не увидит твои билеты, пока урну не откроют. Даже ведущий."
+          kicker={state.round > 1 ? t.collect.kickerRound(state.round) : t.collect.kicker}
+          title={<Accent parts={t.collect.title(perPlayer)} />}
+          sub={t.collect.sub}
         />
 
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-14">
@@ -45,7 +42,7 @@ export function Collect() {
           <aside>
             <div className="lg:sticky lg:top-28">
               <div className="flex items-baseline justify-between">
-                <p className="label">Твои билеты</p>
+                <p className="label">{t.collect.yourTickets}</p>
                 <p className="font-mono text-[11px] text-muted">
                   {mine.length}/{perPlayer}
                 </p>
@@ -75,7 +72,7 @@ export function Collect() {
                 ))}
               </div>
 
-              <p className="label mt-8">Кто сколько загадал</p>
+              <p className="label mt-8">{t.collect.whoPicked}</p>
               <ul className="mt-3 space-y-2">
                 {state.players.map((p) => {
                   const n = state.counts[p.id] ?? 0;
@@ -84,9 +81,9 @@ export function Collect() {
                       <Avatar player={p} size={26} />
                       <span className="min-w-0 flex-1 truncate text-[14px]">
                         {p.name}
-                        {p.id === myId && <span className="text-dim"> · ты</span>}
+                        {p.id === myId && <span className="text-dim">{t.room.youShort}</span>}
                       </span>
-                      <span className="flex gap-1" aria-label={`${n} из ${perPlayer}`}>
+                      <span className="flex gap-1" aria-label={t.collect.progress(n, perPlayer)}>
                         {Array.from({ length: perPlayer }, (_, i) => (
                           <span key={i} className={`h-2.5 w-4 rounded-[2px] transition ${i < n ? "bg-paper" : "bg-ink-3"}`} />
                         ))}
@@ -103,17 +100,17 @@ export function Collect() {
       <ActionBar
         note={
           waiting.length === 0
-            ? "Все билеты в урне."
+            ? t.collect.allIn
             : isHost
-              ? `Ещё загадывают: ${joinNames(waiting.map((p) => p.name))}. Можно открыть и так.`
+              ? t.collect.stillPicking(joinNames(t, waiting.map((p) => p.name)))
               : full
-                ? <span className="dots">Ждём остальных — урну откроет {host?.name ?? "ведущий"}</span>
-                : `Осталось загадать: ${perPlayer - mine.length}`
+                ? <span className="dots">{t.collect.waitOthers(host?.name ?? t.room.hostFallback)}</span>
+                : t.collect.left(perPlayer - mine.length)
         }
       >
         {isHost && (
           <Button size="lg" disabled={total < 2} busy={busy === "reveal"} onClick={() => go("reveal", { type: "reveal" })}>
-            Открыть урну · {total}
+            {t.collect.open(total)}
           </Button>
         )}
       </ActionBar>
@@ -138,6 +135,7 @@ function Search({
   const [demo, setDemo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
+  const { t, lang } = useI18n();
 
   useEffect(() => {
     if (trimmed.length < 2) return;
@@ -145,7 +143,7 @@ function Search({
     const timer = setTimeout(async () => {
       setStatus("loading");
       try {
-        const res = await api.search(trimmed, ctrl.signal);
+        const res = await api.search(trimmed, lang, ctrl.signal);
         setResults(res.results);
         setDemo(res.demo);
         setStatus("done");
@@ -157,7 +155,7 @@ function Search({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [trimmed]);
+  }, [trimmed, lang]);
 
   const add = async (film: Film) => {
     if (await onAdd(film)) setQuery("");
@@ -170,7 +168,7 @@ function Search({
   return (
     <div>
       <label htmlFor="film-search" className="label">
-        Найти фильм, сериал или мультфильм
+        {t.collect.searchLabel}
       </label>
       <div className="relative mt-3">
         <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-dim">
@@ -183,7 +181,7 @@ function Search({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={full ? "Все билеты заполнены — убери один, чтобы заменить" : "Например, «Начало» или Dune…"}
+          placeholder={full ? t.collect.placeholderFull : t.collect.placeholder}
           name="q"
           disabled={full}
           autoComplete="off"
@@ -191,13 +189,13 @@ function Search({
           className="h-14 w-full rounded-lg border border-line-strong bg-ink-1 pl-12 pr-4 text-[17px] text-cream placeholder:text-dim focus:border-amber/70 focus:outline-none disabled:opacity-60"
         />
         {status === "loading" && showResults && (
-          <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-dim border-t-amber" aria-label="Ищем" />
+          <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-dim border-t-amber" aria-label={t.collect.searching} />
         )}
       </div>
 
       {demo && showResults && (
         <p className="mt-3 rounded-md border border-amber/25 bg-amber/5 px-3 py-2 text-[13px] text-amber/90">
-          Демо-каталог из 16 фильмов. Добавь ключ TMDB — и найдётся всё.
+          {t.collect.demo}
         </p>
       )}
 
@@ -216,12 +214,12 @@ function Search({
                 >
                   <Poster film={film} size="w92" rounded="rounded" className="w-12 shrink-0" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] font-medium leading-tight">{film.title}</span>
+                    <span className="block truncate text-[16px] font-medium leading-tight">{filmTitle(film, lang)}</span>
                     <span className="mt-1 block truncate text-[12.5px] text-dim">
-                      {[film.enTitle ?? film.originalTitle, metaLine(film)].filter(Boolean).join(" · ")}
+                      {[filmSubtitle(film, lang), filmMeta(film, t)].filter(Boolean).join(" · ")}
                     </span>
                   </span>
-                  {film.rating ? <span className="font-mono text-[11px] text-muted">★ {film.rating.toFixed(1)}</span> : null}
+                  {film.rating ? <span className="font-mono text-[11px] text-muted">★ {formatRating(lang, film.rating)}</span> : null}
                   <span
                     className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition ${
                       added
@@ -244,7 +242,7 @@ function Search({
                       </svg>
                     )}
                   </span>
-                  <span className="sr-only">{added ? "уже в билетах" : "добавить"}</span>
+                  <span className="sr-only">{added ? t.collect.added : t.collect.add}</span>
                 </button>
               </li>
             );
@@ -253,9 +251,9 @@ function Search({
       )}
 
       {showResults && status === "done" && results.length === 0 && (
-        <p className="mt-5 text-[14px] text-muted">Ничего не нашлось. Попробуй по-английски или в оригинале.</p>
+        <p className="mt-5 text-[14px] text-muted">{t.collect.nothing}</p>
       )}
-      {status === "error" && showResults && <p className="mt-5 text-[14px] text-signal-hi">Поиск не ответил. Попробуй ещё раз.</p>}
+      {status === "error" && showResults && <p className="mt-5 text-[14px] text-signal-hi">{t.collect.searchFailed}</p>}
 
       {showResults && status !== "loading" && !has.has(manual.key) && manual.key !== "manual:" && (
         <button
@@ -264,13 +262,15 @@ function Search({
           onClick={() => add(manual)}
           className="mt-4 w-full rounded-md border border-dashed border-line-strong px-4 py-3 text-left text-[14px] text-muted transition hover:border-cream/40 hover:text-cream disabled:opacity-40"
         >
-          Нет нужного? Добавить «<span className="text-cream">{trimmed}</span>» просто названием
+          {t.collect.manual[0]}
+          <span className="text-cream">{trimmed}</span>
+          {t.collect.manual[1]}
         </button>
       )}
 
       {!showResults && (
         <p className="mt-4 text-[13px] leading-relaxed text-dim">
-          Ищем сразу по-русски и по-английски: фильмы, сериалы, мультфильмы, аниме.
+          {t.collect.hint}
         </p>
       )}
     </div>

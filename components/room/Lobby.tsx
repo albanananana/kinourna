@@ -1,7 +1,7 @@
 "use client";
 
 import { MAX_PER_PLAYER } from "@/lib/game";
-import { filmsWord } from "@/lib/ru";
+import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Bulbs } from "../ui/Bulbs";
 import { Button } from "../ui/Button";
@@ -14,6 +14,7 @@ export function Lobby() {
   const { state, isHost, myId, notify } = useRoomCtx();
   const { busy, go } = useBusy();
   const { armed, confirm } = useTwoStep();
+  const { t } = useI18n();
   const host = state.players.find((p) => p.id === state.hostId);
   const { perPlayer, allowOwn } = state.settings;
 
@@ -23,7 +24,7 @@ export function Lobby() {
         <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-16">
           {/* Marquee with the room code */}
           <div>
-            <p className="label text-amber">Код зала</p>
+            <p className="label text-amber">{t.lobby.codeKicker}</p>
             <div className="mt-4 w-fit rounded-xl border border-line bg-ink-1/70 px-5 py-4 shadow-[0_30px_80px_-40px_rgb(229_56_44/0.5)]">
               <Bulbs count={14} />
               <SplitFlap
@@ -36,16 +37,16 @@ export function Lobby() {
               <Bulbs count={14} />
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button variant="ghost" onClick={() => shareRoom(state.code, notify)}>
-                Позвать друзей
+              <Button variant="ghost" onClick={() => shareRoom(state.code, notify, t)}>
+                {t.lobby.invite}
               </Button>
-              <span className="text-[14px] text-muted">или продиктуй код вслух</span>
+              <span className="text-[14px] text-muted">{t.lobby.orSay}</span>
             </div>
           </div>
 
           <div>
             <div className="flex items-baseline justify-between">
-              <p className="label">В зале · {state.players.length}</p>
+              <p className="label">{t.lobby.inRoom(state.players.length)}</p>
             </div>
             <ul className="mt-4 divide-y divide-line border-y border-line">
               {state.players.map((p) => (
@@ -53,9 +54,9 @@ export function Lobby() {
                   <Avatar player={p} size={36} />
                   <span className="min-w-0 flex-1 truncate text-[16px]">
                     {p.name}
-                    {p.id === myId && <span className="text-dim"> · это ты</span>}
+                    {p.id === myId && <span className="text-dim">{t.room.you}</span>}
                   </span>
-                  {p.id === state.hostId && <span className="label text-amber">ведущий</span>}
+                  {p.id === state.hostId && <span className="label text-amber">{t.room.hostLabel}</span>}
                   {isHost && p.id !== myId && (
                     <button
                       type="button"
@@ -63,9 +64,9 @@ export function Lobby() {
                         armed === p.id ? "bg-signal/15 text-signal-hi" : "text-dim hover:text-signal-hi"
                       }`}
                       onClick={() => confirm(p.id, () => go(`kick-${p.id}`, { type: "kick", playerId: p.id }))}
-                      aria-label={armed === p.id ? `Точно убрать ${p.name}? Нажми ещё раз` : `Убрать ${p.name} из зала`}
+                      aria-label={armed === p.id ? t.lobby.kickConfirm(p.name) : t.lobby.kickLabel(p.name)}
                     >
-                      {armed === p.id ? "точно?" : "убрать"}
+                      {armed === p.id ? t.lobby.sure : t.lobby.kick}
                     </button>
                   )}
                 </li>
@@ -73,9 +74,9 @@ export function Lobby() {
             </ul>
 
             <div className="mt-8">
-              <p className="label">Сколько фильмов загадывает каждый</p>
+              <p className="label">{t.lobby.perPlayer}</p>
               {isHost ? (
-                <div role="radiogroup" aria-label="Фильмов на человека" className="mt-3 grid grid-cols-5 gap-2">
+                <div role="radiogroup" aria-label={t.lobby.perPlayerAria} className="mt-3 grid grid-cols-5 gap-2">
                   {Array.from({ length: MAX_PER_PLAYER }, (_, i) => i + 1).map((n) => (
                     <button
                       key={n}
@@ -93,7 +94,7 @@ export function Lobby() {
                 </div>
               ) : (
                 <p className="mt-2 text-[16px]">
-                  {perPlayer} {filmsWord(perPlayer)}
+                  {t.lobby.perPlayerValue(perPlayer)}
                 </p>
               )}
 
@@ -112,9 +113,9 @@ export function Lobby() {
                   <span className="h-5 w-5 rounded-full bg-cream shadow" />
                 </span>
                 <span className="text-[14px] leading-snug text-muted">
-                  <span className="text-cream">Можно голосовать за свои фильмы</span>
+                  <span className="text-cream">{t.lobby.allowOwn}</span>
                   <br />
-                  Обычно выключено, чтобы каждый не тянул одеяло на себя.
+                  {t.lobby.allowOwnHint}
                 </span>
               </label>
             </div>
@@ -126,16 +127,16 @@ export function Lobby() {
         note={
           isHost
             ? state.players.length < 2
-              ? "Подожди друзей — или начни, они смогут зайти и позже."
-              : "Все на месте? Тогда начинаем."
+              ? t.lobby.aloneNote
+              : t.lobby.readyNote
             : (
-                <span className="dots">Ждём, пока {host?.name ?? "ведущий"} начнёт</span>
+                <span className="dots">{t.lobby.waitHost(host?.name ?? t.room.hostFallback)}</span>
               )
         }
       >
         {isHost && (
           <Button size="lg" busy={busy === "start"} onClick={() => go("start", { type: "startCollect" })}>
-            Загадывать
+            {t.lobby.start}
           </Button>
         )}
       </ActionBar>

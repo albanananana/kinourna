@@ -12,9 +12,9 @@ export async function handle(fn: () => Promise<unknown>) {
   } catch (err) {
     // Let Next.js handle its own control-flow errors (e.g. "this route is dynamic").
     unstable_rethrow(err);
-    if (err instanceof ApiError) return json({ error: err.message }, err.status);
+    if (err instanceof ApiError) return json({ error: err.code, params: err.params }, err.status);
     console.error("[kinourna]", err);
-    return json({ error: "Что-то сломалось на сервере. Попробуй ещё раз." }, 500);
+    return json({ error: "server" }, 500);
   }
 }
 

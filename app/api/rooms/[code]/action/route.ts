@@ -8,7 +8,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/ac
     const { code } = await ctx.params;
     const body = await readBody(req);
     const action = body.action as Action | undefined;
-    if (!action || typeof action.type !== "string") throw new ApiError(400, "Пустое действие.");
+    if (!action || typeof action.type !== "string") throw new ApiError(400, "badAction");
     return act(code.toUpperCase(), sessionFromHeaders(req.headers), action);
   });
 }

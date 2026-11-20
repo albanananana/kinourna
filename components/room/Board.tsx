@@ -1,19 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { filmsWord } from "@/lib/ru";
 import type { Mode } from "@/lib/types";
+import { useI18n } from "../i18n/I18nProvider";
 import { Button } from "../ui/Button";
-import { ActionBar, Heading, Page } from "./ActionBar";
+import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
 
-export const MODES: { id: Mode; name: string; pitch: string; how: string; icon: ReactNode }[] = [
+export const MODES: { id: Mode; icon: ReactNode }[] = [
   {
     id: "urn",
-    name: "Урна",
-    pitch: "Чистый жребий",
-    how: "Тянем один билет. Если фильм загадали двое — у него два билета.",
     icon: (
       <svg viewBox="0 0 40 40" aria-hidden>
         <circle cx="20" cy="18" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -24,9 +21,6 @@ export const MODES: { id: Mode; name: string; pitch: string; how: string; icon: 
   },
   {
     id: "vote",
-    name: "Голосование",
-    pitch: "Что устроит всех",
-    how: "Каждый отмечает всё, что готов смотреть. Больше всего голосов — побеждает, ничью решает урна.",
     icon: (
       <svg viewBox="0 0 40 40" aria-hidden>
         <rect x="6" y="8" width="28" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -36,9 +30,6 @@ export const MODES: { id: Mode; name: string; pitch: string; how: string; icon: 
   },
   {
     id: "strike",
-    name: "Вычёркивание",
-    pitch: "По кругу, до последнего",
-    how: "По очереди каждый убирает один фильм, который точно не хочет. Последний оставшийся — смотрим.",
     icon: (
       <svg viewBox="0 0 40 40" aria-hidden>
         <path d="M8 12h24M8 20h24M8 28h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
@@ -54,19 +45,16 @@ export function Board() {
   const [mode, setMode] = useState<Mode>("urn");
   const host = state.players.find((p) => p.id === state.hostId);
   const own = new Set(me?.own ?? []);
-  const selected = MODES.find((m) => m.id === mode)!;
+  const { t } = useI18n();
+  const hostName = host?.name ?? t.room.hostFallback;
 
   return (
     <>
       <Page>
         <Heading
-          kicker="Урна открыта"
-          title={
-            <>
-              На столе {state.board.length} <span className="text-signal">{filmsWord(state.board.length)}</span>
-            </>
-          }
-          sub="Кто что загадал — узнаете в самом конце."
+          kicker={t.board.kicker}
+          title={<Accent parts={t.board.title(state.board.length)} />}
+          sub={t.board.sub}
         />
 
         <FilmGrid>
@@ -77,9 +65,9 @@ export function Board() {
               index={i}
               badge={
                 film.weight > 1 ? (
-                  <Badge tone="amber">×{film.weight} совпало</Badge>
+                  <Badge tone="amber">{t.room.matched(film.weight)}</Badge>
                 ) : own.has(film.key) ? (
-                  <Badge>твой</Badge>
+                  <Badge>{t.room.mine}</Badge>
                 ) : undefined
               }
             />
@@ -87,8 +75,8 @@ export function Board() {
         </FilmGrid>
 
         <div className="mt-12">
-          <p className="label">{isHost ? "Как будем выбирать?" : `${host?.name ?? "Ведущий"} выбирает режим`}</p>
-          <div role={isHost ? "radiogroup" : undefined} aria-label="Режим выбора" className="mt-4 grid gap-3 md:grid-cols-3">
+          <p className="label">{isHost ? t.board.howPick : t.board.hostChooses(hostName)}</p>
+          <div role={isHost ? "radiogroup" : undefined} aria-label={t.board.modeAria} className="mt-4 grid gap-3 md:grid-cols-3">
             {MODES.map((m) => {
               const active = isHost && m.id === mode;
               const Tag = isHost ? "button" : "div";
@@ -107,9 +95,9 @@ export function Board() {
                 >
                   <span className={`mt-1 h-10 w-10 shrink-0 ${active ? "text-signal" : "text-muted"}`}>{m.icon}</span>
                   <span>
-                    <span className="display block text-[34px]">{m.name}</span>
-                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-amber/90">{m.pitch}</span>
-                    <span className="mt-2 block text-[14px] leading-snug text-muted">{m.how}</span>
+                    <span className="display block text-[34px]">{t.modes[m.id].name}</span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-amber/90">{t.modes[m.id].pitch}</span>
+                    <span className="mt-2 block text-[14px] leading-snug text-muted">{t.modes[m.id].how}</span>
                   </span>
                 </Tag>
               );
@@ -121,7 +109,7 @@ export function Board() {
       <ActionBar
         note={
           isHost ? (
-            <div role="radiogroup" aria-label="Режим" className="flex rounded-md border border-line-strong p-0.5">
+            <div role="radiogroup" aria-label={t.board.modeAria} className="flex rounded-md border border-line-strong p-0.5">
               {MODES.map((m) => (
                 <button
                   key={m.id}
@@ -133,18 +121,18 @@ export function Board() {
                     m.id === mode ? "bg-cream text-ink-0" : "text-muted hover:text-cream"
                   }`}
                 >
-                  {m.name}
+                  {t.modes[m.id].name}
                 </button>
               ))}
             </div>
           ) : (
-            <span className="dots">Ждём, что выберет {host?.name ?? "ведущий"}</span>
+            <span className="dots">{t.board.waitChoice(hostName)}</span>
           )
         }
       >
         {isHost && (
           <Button size="lg" busy={busy === "mode"} onClick={() => go("mode", { type: "startMode", mode })}>
-            Начать · {selected.name}
+            {t.board.start(t.modes[mode].name)}
           </Button>
         )}
       </ActionBar>

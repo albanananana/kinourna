@@ -1,4 +1,9 @@
+import type { Lang } from "./i18n/config";
+
 export type MediaType = "movie" | "tv";
+
+/** Title, overview and poster (TMDB path) in one language. */
+export type Loc = { title?: string; overview?: string; poster?: string };
 
 /** A title as it travels through the app (search result, pick, board entry). */
 export type Film = {
@@ -6,10 +11,10 @@ export type Film = {
   key: string;
   tmdbId?: number;
   mediaType?: MediaType;
-  /** Localized (Russian) title, falls back to the original. */
+  /** Fallback title — in whatever language the film was found or typed. */
   title: string;
-  /** English title when it differs from `title`. */
-  enTitle?: string;
+  /** Per-language titles and overviews; each viewer reads their own. */
+  t?: Partial<Record<Lang, Loc>>;
   originalTitle?: string;
   year?: string;
   poster?: string;

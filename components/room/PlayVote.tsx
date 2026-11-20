@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { joinNames } from "@/lib/ru";
+import { filmTitle, joinNames } from "@/lib/i18n";
+import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
-import { ActionBar, Heading, Page } from "./ActionBar";
+import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
 
 export function PlayVote() {
   const { state, me, myId, isHost } = useRoomCtx();
   const { busy, go } = useBusy();
+  const { t, lang } = useI18n();
   const play = state.play?.kind === "vote" ? state.play : null;
   const own = new Set(me?.own ?? []);
   const allowOwn = state.settings.allowOwn;
@@ -37,13 +39,9 @@ export function PlayVote() {
     <>
       <Page>
         <Heading
-          kicker="Режим · голосование"
-          title={
-            <>
-              Что <span className="text-signal">готов</span> смотреть?
-            </>
-          }
-          sub={`Отмечай сколько угодно — хоть всё. ${allowOwn ? "За свои тоже можно." : "Свои билеты отметить нельзя."} Голоса тайные.`}
+          kicker={t.vote.kicker}
+          title={<Accent parts={t.vote.title} />}
+          sub={t.vote.sub(allowOwn)}
         />
         <FilmGrid>
           {state.board.map((film, i) => {
@@ -56,8 +54,8 @@ export function PlayVote() {
                 index={i}
                 state={blocked ? "disabled" : current.has(film.key) ? "selected" : "idle"}
                 onClick={canVote && !blocked ? () => toggle(film.key) : undefined}
-                badge={mine ? <Badge>твой</Badge> : undefined}
-                label={`${film.title}${current.has(film.key) ? " — отмечен" : ""}`}
+                badge={mine ? <Badge>{t.room.mine}</Badge> : undefined}
+                label={`${filmTitle(film, lang)}${current.has(film.key) ? t.vote.marked : ""}`}
               />
             );
           })}
@@ -75,22 +73,22 @@ export function PlayVote() {
             </span>
             <span>
               {!canVote
-                ? "Голосование началось до твоего прихода — смотрим, чем кончится."
+                ? t.vote.late
                 : pending.length
-                  ? `Ждём: ${joinNames(pending)}`
-                  : "Все проголосовали"}
+                  ? t.vote.waiting(joinNames(t, pending))
+                  : t.vote.allVoted}
             </span>
           </span>
         }
       >
         {isHost && pending.length > 0 && (voted || !canVote) && (
           <Button variant="ghost" busy={busy === "close"} onClick={() => go("close", { type: "closeVote" })}>
-            Подвести итог
+            {t.vote.close}
           </Button>
         )}
         {canVote && (
           <Button size="lg" busy={busy === "vote"} disabled={voted && !dirty} onClick={submit}>
-            {voted && !dirty ? "Голос принят" : voted ? `Изменить · ${current.size}` : `Голосую · ${current.size}`}
+            {voted && !dirty ? t.vote.accepted : voted ? t.vote.change(current.size) : t.vote.submit(current.size)}
           </Button>
         )}
       </ActionBar>

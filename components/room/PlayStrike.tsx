@@ -3,10 +3,11 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { currentStriker, remainingAfterStrikes } from "@/lib/game";
-import { filmsWord } from "@/lib/ru";
+import { filmTitle } from "@/lib/i18n";
+import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
-import { ActionBar, Page } from "./ActionBar";
+import { Accent, ActionBar, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { FilmCard, FilmGrid } from "./FilmCard";
 
@@ -14,6 +15,7 @@ export function PlayStrike() {
   const { state, myId, isHost, players } = useRoomCtx();
   const { busy, go } = useBusy();
   const [selected, setSelected] = useState<string | null>(null);
+  const { t, lang } = useI18n();
   if (state.play?.kind !== "strike") return null;
   const play = state.play;
 
@@ -33,7 +35,7 @@ export function PlayStrike() {
   return (
     <>
       <Page>
-        <p className="label text-amber">Режим · вычёркивание</p>
+        <p className="label text-amber">{t.strike.kicker}</p>
         <AnimatePresence mode="wait">
           <motion.div
             key={play.turn + "-" + play.struck.length}
@@ -46,23 +48,16 @@ export function PlayStrike() {
             {striker && <Avatar player={striker} size={56} ring={myTurn} />}
             <div>
               <h1 className="display text-[clamp(46px,12vw,88px)]">
-                {myTurn ? (
-                  <>
-                    Твой <span className="text-signal">ход</span>
-                  </>
-                ) : (
-                  <>Ход: {striker?.name ?? "—"}</>
-                )}
+                {myTurn ? <Accent parts={t.strike.yourTurn} /> : t.strike.turnOf(striker?.name ?? "—")}
               </h1>
             </div>
           </motion.div>
         </AnimatePresence>
         <p className="mt-3 max-w-[48ch] text-[15px] text-muted">
-          {myTurn ? "Выбери фильм, который точно не хочешь смотреть." : "Смотрим, что уберут."} Осталось {left.length}{" "}
-          {filmsWord(left.length)} — последний и будем смотреть.
+          {myTurn ? t.strike.pickPrompt : t.strike.watchPrompt} {t.strike.left(left.length)}
         </p>
 
-        <ol className="mt-6 flex flex-wrap items-center gap-2" aria-label="Очередь">
+        <ol className="mt-6 flex flex-wrap items-center gap-2" aria-label={t.strike.queue}>
           {play.order.map((id, i) => {
             const p = players.get(id);
             if (!p) return null;
@@ -76,7 +71,7 @@ export function PlayStrike() {
               >
                 <Avatar player={p} size={22} />
                 {p.name}
-                {i < play.order.length - 1 && <span className="sr-only">, затем</span>}
+                {i < play.order.length - 1 && <span className="sr-only">{t.strike.then}</span>}
               </li>
             );
           })}
@@ -86,7 +81,7 @@ export function PlayStrike() {
           <FilmGrid>
             {state.board.map((film, i) => {
               const by = struckBy.get(film.key);
-              const who = by ? players.get(by)?.name ?? "кто-то" : undefined;
+              const who = by ? players.get(by)?.name ?? t.strike.someone : undefined;
               return (
                 <FilmCard
                   key={film.key}
@@ -107,18 +102,18 @@ export function PlayStrike() {
           myTurn
             ? target
               ? undefined
-              : "Нажми на постер, чтобы выбрать."
-            : <span className="dots">Ждём ход: {striker?.name ?? "—"}</span>
+              : t.strike.tapPoster
+            : <span className="dots">{t.strike.waitTurn(striker?.name ?? "—")}</span>
         }
       >
         {isHost && !myTurn && (
           <Button variant="ghost" busy={busy === "skip"} onClick={() => go("skip", { type: "skipTurn" })}>
-            Пропустить ход
+            {t.strike.skip}
           </Button>
         )}
         {myTurn && (
           <Button size="lg" disabled={!target} busy={busy === "strike"} onClick={strike} className="max-w-full">
-            <span className="truncate">{target ? `Вычеркнуть «${target.title}»` : "Вычеркнуть"}</span>
+            <span className="truncate">{target ? t.strike.strikeIt(filmTitle(target, lang)) : t.strike.strikeBtn}</span>
           </Button>
         )}
       </ActionBar>

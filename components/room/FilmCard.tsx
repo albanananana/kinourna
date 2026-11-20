@@ -2,15 +2,12 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
+import { filmMeta, filmTitle } from "@/lib/i18n";
 import type { Film } from "@/lib/types";
+import { useI18n } from "../i18n/I18nProvider";
 import { Poster } from "../ui/Poster";
 
 export type CardState = "idle" | "selected" | "targeted" | "disabled" | "struck" | "pickable";
-
-export function metaLine(film: Film) {
-  const kind = film.animation ? "мульт" : film.mediaType === "tv" ? "сериал" : undefined;
-  return [film.year, kind].filter(Boolean).join(" · ");
-}
 
 export function FilmCard({
   film,
@@ -30,6 +27,7 @@ export function FilmCard({
   label?: string;
 }) {
   const reduce = useReducedMotion();
+  const { t, lang } = useI18n();
   const interactive = !!onClick && state !== "disabled" && state !== "struck";
   const Tag = interactive ? motion.button : motion.div;
 
@@ -83,9 +81,9 @@ export function FilmCard({
       </div>
       <div className={`mt-2 ${state === "struck" ? "opacity-50" : ""}`}>
         <div className={`line-clamp-2 text-[13.5px] font-medium leading-tight ${state === "struck" ? "line-through decoration-signal/80" : ""}`}>
-          {film.title}
+          {filmTitle(film, lang)}
         </div>
-        <div className="mt-0.5 truncate text-[11.5px] text-dim">{caption ?? (metaLine(film) || " ")}</div>
+        <div className="mt-0.5 truncate text-[11.5px] text-dim">{caption ?? (filmMeta(film, t) || "\u00a0")}</div>
       </div>
     </Tag>
   );

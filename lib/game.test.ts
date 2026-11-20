@@ -13,7 +13,8 @@ import {
   weightedPick,
   type Rng,
 } from "./game";
-import { plural } from "./ru";
+import { filmSubtitle, filmTitle, getDict, joinNames, matchAcceptLanguage } from "./i18n";
+import { plural } from "./i18n/plural";
 import type { BoardFilm, Film, StrikePlay } from "./types";
 
 const film = (key: string): Film => ({ key, title: key });
@@ -115,8 +116,8 @@ describe("strike", () => {
 
 describe("plural", () => {
   it("handles Russian forms", () => {
-    const f: [string, string, string] = ["фильм", "фильма", "фильмов"];
-    expect([1, 2, 5, 11, 21, 22, 25, 112].map((n) => plural(n, f))).toEqual([
+    const f = { one: "фильм", few: "фильма", many: "фильмов", other: "фильма" };
+    expect([1, 2, 5, 11, 21, 22, 25, 112].map((n) => plural("ru", n, f))).toEqual([
       "фильм",
       "фильма",
       "фильмов",
@@ -126,5 +127,50 @@ describe("plural", () => {
       "фильмов",
       "фильмов",
     ]);
+  });
+
+  it("handles Polish forms (1 film, 2 filmy, 5 filmów, 22 filmy)", () => {
+    const f = { one: "film", few: "filmy", many: "filmów", other: "filmu" };
+    expect([1, 2, 4, 5, 12, 21, 22, 25].map((n) => plural("pl", n, f))).toEqual([
+      "film",
+      "filmy",
+      "filmy",
+      "filmów",
+      "filmów",
+      "filmów",
+      "filmy",
+      "filmów",
+    ]);
+  });
+
+  it("builds whole phrases in every language", () => {
+    expect(getDict("pl").strike.left(3)).toBe("Zostały 3 filmy — ostatni obejrzymy.");
+    expect(getDict("pl").strike.left(5)).toBe("Zostało 5 filmów — ostatni obejrzymy.");
+    expect(getDict("en").urn.text(1, false)).toBe("Anyone can draw. There is 1 ticket in the drum.");
+    expect(getDict("ru").result.chance(1, 21)).toBe("Шанс был 1 из 21 билета.");
+    expect(joinNames(getDict("pl"), ["Ola", "Kuba", "Ania"])).toBe("Ola, Kuba i Ania");
+  });
+});
+
+describe("language", () => {
+  it("follows the browser's preference order", () => {
+    expect(matchAcceptLanguage("pl-PL,pl;q=0.9,en-US;q=0.8,ru;q=0.7")).toBe("pl");
+    expect(matchAcceptLanguage("de-DE,ru;q=0.5,en;q=0.9")).toBe("en");
+    expect(matchAcceptLanguage("uk-UA,ru-RU;q=0.9")).toBe("ru");
+    expect(matchAcceptLanguage("de-DE")).toBe("en");
+    expect(matchAcceptLanguage(null)).toBe("en");
+  });
+
+  it("shows each viewer the film in their language, falling back to English", () => {
+    const f: Film = {
+      key: "movie:1",
+      title: "Брат 2",
+      originalTitle: "Брат 2",
+      t: { ru: { title: "Брат 2" }, en: { title: "Brother 2" } },
+    };
+    expect(filmTitle(f, "ru")).toBe("Брат 2");
+    expect(filmTitle(f, "pl")).toBe("Brother 2");
+    expect(filmSubtitle(f, "ru")).toBe("Brother 2");
+    expect(filmSubtitle(f, "en")).toBe("Брат 2");
   });
 });

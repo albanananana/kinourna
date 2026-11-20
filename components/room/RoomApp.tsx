@@ -3,8 +3,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { errorOf } from "@/lib/client/errors";
 import { useRoom } from "@/lib/client/useRoom";
 import type { Action, MeData, RoomState, Session } from "@/lib/types";
+import { useI18n } from "../i18n/I18nProvider";
 import { Board } from "./Board";
 import { Collect } from "./Collect";
 import { RoomContext, type RoomCtx } from "./context";
@@ -18,15 +20,16 @@ import { RoomHeader } from "./RoomHeader";
 
 export function RoomApp({ code }: { code: string }) {
   const room = useRoom(code);
+  const { t } = useI18n();
 
   if (room.status === "missing") {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
-        <p className="label text-signal">Сеанс не найден</p>
-        <h1 className="display mt-3 text-[64px]">Зала {code} нет</h1>
-        <p className="mt-4 text-muted">Проверь код. Комнаты, в которых долго ничего не происходит, закрываются сами.</p>
+        <p className="label text-signal">{t.room.missingKicker}</p>
+        <h1 className="display mt-3 text-[64px]">{t.room.missingTitle(code)}</h1>
+        <p className="mt-4 text-muted">{t.room.missingText}</p>
         <Link href="/" className="mt-8 inline-flex h-12 w-fit items-center rounded-md bg-signal px-5 font-display text-[21px] font-bold uppercase">
-          Создать новую
+          {t.room.createNew}
         </Link>
       </main>
     );
@@ -35,14 +38,14 @@ export function RoomApp({ code }: { code: string }) {
   if (!room.state && room.error) {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
-        <p className="label text-signal">Не получилось открыть зал</p>
-        <p className="mt-4 text-[16px] leading-relaxed text-cream/85">{room.error}</p>
+        <p className="label text-signal">{t.room.failedKicker}</p>
+        <p className="mt-4 text-[16px] leading-relaxed text-cream/85">{errorOf(t, room.error)}</p>
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="mt-8 inline-flex h-12 w-fit items-center rounded-md border border-line-strong px-5 font-display text-[21px] font-bold uppercase transition hover:border-cream/50"
         >
-          Попробовать ещё раз
+          {t.room.retry}
         </button>
       </main>
     );
@@ -58,9 +61,10 @@ export function RoomApp({ code }: { code: string }) {
 }
 
 export function RoomLoading() {
+  const { t } = useI18n();
   return (
     <main className="flex flex-1 items-center justify-center py-32" aria-busy>
-      <span className="label dots">Открываем зал</span>
+      <span className="label dots">{t.room.loading}</span>
     </main>
   );
 }
@@ -76,6 +80,7 @@ function RoomInner({
   session: Session;
   act: (action: Action) => Promise<unknown>;
 }) {
+  const { t } = useI18n();
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   // A result that already existed when the page loaded is shown without the
   // big reveal; one that arrives while we're watching gets the full show.
@@ -95,11 +100,11 @@ function RoomInner({
         await act(action);
         return true;
       } catch (err) {
-        notify((err as Error).message);
+        notify(errorOf(t, err));
         return false;
       }
     },
-    [act, notify],
+    [act, notify, t],
   );
 
   const ctx = useMemo<RoomCtx>(

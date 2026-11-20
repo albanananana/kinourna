@@ -1,7 +1,8 @@
 import type { Film } from "../types";
 
-/** Demo catalogue used when no TMDB key is configured (local dev, previews). */
-export const MOCK_FILMS: Film[] = [
+type RawMock = Omit<Film, "t"> & { enTitle: string };
+
+const RAW: RawMock[] = [
   { key: "movie:603", tmdbId: 603, mediaType: "movie", title: "Матрица", enTitle: "The Matrix", year: "1999", poster: "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", rating: 8.2, overview: "Хакер Нео узнаёт, что привычный мир — симуляция, и выбирает, какую таблетку проглотить." },
   { key: "movie:157336", tmdbId: 157336, mediaType: "movie", title: "Интерстеллар", enTitle: "Interstellar", year: "2014", poster: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", rating: 8.5, overview: "Экспедиция уходит сквозь червоточину искать новый дом для человечества, пока на Земле идёт время." },
   { key: "movie:550", tmdbId: 550, mediaType: "movie", title: "Бойцовский клуб", enTitle: "Fight Club", year: "1999", poster: "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", rating: 8.4, overview: "Офисный клерк с бессонницей и торговец мылом устраивают подпольные драки, которые быстро выходят из-под контроля." },
@@ -19,3 +20,9 @@ export const MOCK_FILMS: Film[] = [
   { key: "movie:546554", tmdbId: 546554, mediaType: "movie", title: "Достать ножи", enTitle: "Knives Out", year: "2019", poster: "/pThyQovXQrw2m0s9x82twj48Jq4.jpg", rating: 7.8, overview: "Знаменитого автора детективов находят мёртвым, и под подозрением оказывается вся его семья." },
   { key: "movie:11324", tmdbId: 11324, mediaType: "movie", title: "Остров проклятых", enTitle: "Shutter Island", year: "2010", poster: "/4GDy0PHYX3VRXUtwK5ysFbg3kEx.jpg", rating: 8.2, overview: "Двое приставов приезжают в клинику на острове искать сбежавшую пациентку." },
 ];
+
+/** Demo catalogue used when no TMDB key is configured (local dev, previews). */
+export const MOCK_FILMS: Film[] = RAW.map(({ enTitle, ...film }) => ({
+  ...film,
+  t: { ru: { title: film.title, overview: film.overview }, en: { title: enTitle } },
+}));

@@ -3,11 +3,15 @@
 import { useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 
-const CHARSET = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯABCDEFGHKLMNPRSTUVWXYZ0123456789";
+const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯ0123456789";
+const LATIN = "ABCDEFGHKLMNPRSTUVWXYZĄĆĘŁŃÓŚŹŻ0123456789";
+/** Rattle through letters of the same script as the title. */
+const charsetFor = (text: string) => (/[\u0400-\u04FF]/.test(text) ? CYRILLIC : LATIN);
 const FRAME_MS = 55;
 
 function scramble(text: string) {
-  return [...text].map((ch) => (ch === " " ? " " : CHARSET[Math.floor(Math.random() * CHARSET.length)])).join("");
+  const set = charsetFor(text);
+  return [...text].map((ch) => (ch === " " ? " " : set[Math.floor(Math.random() * set.length)])).join("");
 }
 
 /**
@@ -37,6 +41,7 @@ export function SplitFlap({
   useEffect(() => {
     if (reduce) return;
     const start = performance.now();
+    const set = charsetFor(text);
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
       const t = performance.now() - start;
@@ -45,7 +50,7 @@ export function SplitFlap({
         .map((ch, i) => {
           if (ch === " " || t >= settleMs + i * stagger) return ch;
           done = false;
-          return CHARSET[Math.floor(Math.random() * CHARSET.length)];
+          return set[Math.floor(Math.random() * set.length)];
         })
         .join("");
       setFrame({ source: text, shown });

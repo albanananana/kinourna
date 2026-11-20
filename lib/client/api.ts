@@ -1,11 +1,14 @@
+import type { Lang } from "../i18n/config";
 import type { Action, Film, MeData, RoomState, Session } from "../types";
 
+/** A failed request; `code` is a key of the dictionary's `errors`. */
 export class RequestError extends Error {
   constructor(
     public status: number,
-    message: string,
+    public code: string,
+    public params?: Record<string, string | number>,
   ) {
-    super(message);
+    super(code);
   }
 }
 
@@ -20,10 +23,13 @@ async function request<T>(url: string, init?: RequestInit & { session?: Session 
   try {
     res = await fetch(url, { ...init, headers, cache: "no-store" });
   } catch {
-    throw new RequestError(0, "Нет связи с сервером. Проверь интернет.");
+    throw new RequestError(0, "network");
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new RequestError(res.status, (data as { error?: string }).error ?? "Что-то пошло не так.");
+  if (!res.ok) {
+    const { error, params } = data as { error?: string; params?: Record<string, string | number> };
+    throw new RequestError(res.status, error ?? "generic", params);
+  }
   return data as T;
 }
 
@@ -48,6 +54,6 @@ export const api = {
       session,
     }),
 
-  search: (q: string, signal?: AbortSignal) =>
-    request<{ results: Film[]; demo: boolean }>(`/api/search?q=${encodeURIComponent(q)}`, { signal }),
+  search: (q: string, lang: Lang, signal?: AbortSignal) =>
+    request<{ results: Film[]; demo: boolean }>(`/api/search?q=${encodeURIComponent(q)}&lang=${lang}`, { signal }),
 };
