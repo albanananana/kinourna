@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyStrike,
+  canGoBack,
   currentStriker,
   drawFromUrn,
   dropFromOrder,
@@ -9,6 +10,8 @@ import {
   manualKey,
   mergePicks,
   normalizeCode,
+  initialState,
+  rewind,
   tallyVotes,
   weightedPick,
   type Rng,
@@ -172,5 +175,41 @@ describe("language", () => {
     expect(filmTitle(f, "pl")).toBe("Brother 2");
     expect(filmSubtitle(f, "ru")).toBe("Brother 2");
     expect(filmSubtitle(f, "en")).toBe("Брат 2");
+  });
+});
+
+describe("stepping back", () => {
+  it("only allows returning to lobby, collect or board from a later stage", () => {
+    expect(canGoBack("collect", "lobby")).toBe(true);
+    expect(canGoBack("board", "collect")).toBe(true);
+    expect(canGoBack("result", "lobby")).toBe(true);
+    expect(canGoBack("play", "board")).toBe(true);
+    expect(canGoBack("board", "board")).toBe(false); // not a step back
+    expect(canGoBack("collect", "board")).toBe(false); // that's forward
+    expect(canGoBack("result", "play")).toBe(false); // play is entered from the board
+    expect(canGoBack("result", "nonsense")).toBe(false); // untrusted input
+  });
+
+  it("keeps everyone's picks and drops what was built on them", () => {
+    const host = { id: "h", name: "Host", hue: 0, joinedAt: 0 };
+    const played = {
+      ...initialState("K7QM", host, 0),
+      phase: "result" as const,
+      counts: { h: 3, g: 1 },
+      board: board(["movie:1", 1], ["movie:2", 2]),
+      mode: "urn" as const,
+      play: { kind: "urn" as const, excluded: [] },
+      result: { key: "movie:2", via: "urn" as const, at: 1, authors: {} },
+    };
+
+    const atBoard = rewind(structuredClone(played), "board");
+    expect(atBoard.phase).toBe("board");
+    expect(atBoard.board).toHaveLength(2);
+    expect(atBoard.play ?? atBoard.result ?? atBoard.mode).toBeUndefined();
+
+    const atCollect = rewind(structuredClone(played), "collect");
+    expect(atCollect.phase).toBe("collect");
+    expect(atCollect.board).toEqual([]);
+    expect(atCollect.counts).toEqual({ h: 3, g: 1 });
   });
 });

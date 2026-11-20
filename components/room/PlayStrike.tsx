@@ -10,6 +10,7 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { FilmCard, FilmGrid } from "./FilmCard";
+import { BackButton } from "./GoBack";
 
 export function PlayStrike() {
   const { state, myId, isHost, players } = useRoomCtx();
@@ -106,6 +107,7 @@ export function PlayStrike() {
             : <span className="dots">{t.strike.waitTurn(striker?.name ?? "—")}</span>
         }
       >
+        {isHost && <BackButton to="board" size={myTurn ? "lg" : "md"} />}
         {isHost && !myTurn && (
           <Button variant="ghost" busy={busy === "skip"} onClick={() => go("skip", { type: "skipTurn" })}>
             {t.strike.skip}

@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorOf } from "@/lib/client/errors";
 import { useRoom } from "@/lib/client/useRoom";
-import type { Action, MeData, RoomState, Session } from "@/lib/types";
+import { canGoBack } from "@/lib/game";
+import type { Action, BackTarget, MeData, RoomState, Session } from "@/lib/types";
 import { useI18n } from "../i18n/I18nProvider";
 import { Board } from "./Board";
 import { Collect } from "./Collect";
 import { RoomContext, type RoomCtx } from "./context";
+import { BackDialog } from "./GoBack";
 import { JoinScreen } from "./JoinScreen";
 import { Lobby } from "./Lobby";
 import { PlayStrike } from "./PlayStrike";
@@ -107,19 +109,33 @@ function RoomInner({
     [act, notify, t],
   );
 
+  const isHost = state.hostId === session.playerId;
+  const [backTo, setBackTo] = useState<BackTarget | null>(null);
+  const closeBack = useCallback(() => setBackTo(null), []);
+
   const ctx = useMemo<RoomCtx>(
     () => ({
       state,
       me,
       myId: session.playerId,
-      isHost: state.hostId === session.playerId,
+      isHost,
       players: new Map(state.players.map((p) => [p.id, p])),
       run,
       notify,
       freshResult: !!state.result && state.result.at !== initialResultAt,
+      askBack: setBackTo,
     }),
-    [state, me, session.playerId, run, notify, initialResultAt],
+    [state, me, session.playerId, isHost, run, notify, initialResultAt],
   );
+
+  // Guests' screens jump back when the host steps back — say why.
+  const lastStage = useRef({ phase: state.phase, round: state.round });
+  useEffect(() => {
+    const prev = lastStage.current;
+    lastStage.current = { phase: state.phase, round: state.round };
+    if (isHost || prev.round !== state.round) return;
+    if (canGoBack(prev.phase, state.phase)) notify(t.room.movedBack[state.phase]);
+  }, [state.phase, state.round, isHost, notify, t]);
 
   const screenKey =
     state.phase === "result" ? `result-${state.result?.at}` : `${state.phase}-${state.play?.kind ?? ""}-${state.round}`;
@@ -149,6 +165,8 @@ function RoomInner({
           <Screen state={state} />
         </motion.div>
       </AnimatePresence>
+
+      {isHost && backTo && <BackDialog to={backTo} onClose={closeBack} />}
 
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(88px+var(--safe-bottom))] z-50 flex justify-center px-4">
         <AnimatePresence>

@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
+import { BackButton } from "./GoBack";
 
 export const MODES: { id: Mode; icon: ReactNode }[] = [
   {
@@ -130,6 +131,7 @@ export function Board() {
           )
         }
       >
+        {isHost && <BackButton to="collect" />}
         {isHost && (
           <Button size="lg" busy={busy === "mode"} onClick={() => go("mode", { type: "startMode", mode })}>
             {t.board.start(t.modes[mode].name)}

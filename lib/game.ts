@@ -1,4 +1,4 @@
-import type { BoardFilm, Film, Player, RoomState, StrikePlay } from "./types";
+import type { BackTarget, BoardFilm, Film, Phase, Player, RoomState, StrikePlay } from "./types";
 
 /** Returns a uniformly random integer in [0, n). */
 export type Rng = (n: number) => number;
@@ -29,6 +29,28 @@ export function isValidCode(code: string): boolean {
 export const PLAYER_HUES = 8;
 export const MAX_PLAYERS = 12;
 export const MAX_PER_PLAYER = 5;
+
+/** Stages in the order a room walks through them. */
+export const PHASES: readonly Phase[] = ["lobby", "collect", "board", "play", "result"];
+
+/** True when `to` is a stage the room has already passed and can return to. */
+export function canGoBack(from: Phase, to: unknown): to is BackTarget {
+  if (to !== "lobby" && to !== "collect" && to !== "board") return false;
+  return PHASES.indexOf(to) < PHASES.indexOf(from);
+}
+
+/**
+ * Steps the room back to an earlier stage. Everyone's picks survive (they live
+ * in secrets and `counts`); whatever was built on top of them is dropped.
+ */
+export function rewind(s: RoomState, to: BackTarget): RoomState {
+  s.phase = to;
+  s.mode = undefined;
+  s.play = undefined;
+  s.result = undefined;
+  if (to !== "board") s.board = [];
+  return s;
+}
 
 export function initialState(code: string, host: Player, now: number): RoomState {
   return {

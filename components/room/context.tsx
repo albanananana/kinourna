@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import type { Action, MeData, Player, RoomState } from "@/lib/types";
+import type { Action, BackTarget, MeData, Player, RoomState } from "@/lib/types";
 
 export type RoomCtx = {
   state: RoomState;
@@ -14,6 +14,8 @@ export type RoomCtx = {
   notify: (message: string) => void;
   /** True when this client watched the result arrive (play the reveal). */
   freshResult: boolean;
+  /** Host only: asks for confirmation, then sends the whole room back a stage. */
+  askBack: (to: BackTarget) => void;
 };
 
 export const RoomContext = createContext<RoomCtx | null>(null);

@@ -74,6 +74,29 @@ export const pl: Dict = {
     mine: "twój",
     matched: (n) => `wybrany ×${n}`,
     skipAnimation: "Pomiń animację",
+    back: "Wstecz",
+    backTo: (stage) => `Wstecz, do etapu „${stage}”`,
+    movedBack: {
+      lobby: "Krok wstecz — znowu w pokoju.",
+      collect: "Krok wstecz — znowu wybieramy. Można dodać lub zmienić filmy.",
+      board: "Krok wstecz — znowu przy urnie.",
+    },
+  },
+
+  goBack: {
+    title: (stage) => `Wrócić do etapu „${stage}”?`,
+    text: {
+      lobby: "Wszyscy wrócą do pokoju: można zmienić ustawienia albo kogoś usunąć. Wybrane bilety zostaną.",
+      collect: "Wszyscy wrócą do wybierania: kto nie zdążył, doda filmy, reszta może zmienić swoje. Wybrane bilety zostaną.",
+      board: "Wszyscy wrócą do urny — można wybrać inny tryb.",
+    },
+    lose: {
+      vote: "Głosy z tej rundy przepadną.",
+      strike: "Skreślanie zacznie się od nowa.",
+      result: "Wybrany film przepadnie — wybierzecie od nowa.",
+    },
+    cancel: "Zostajemy",
+    confirm: "Wracamy",
   },
 
   lobby: {
@@ -92,6 +115,7 @@ export const pl: Dict = {
     allowOwnHint: "Zwykle wyłączone, żeby nikt nie ciągnął w swoją stronę.",
     aloneNote: "Poczekaj na znajomych — albo zacznij, dołączą później.",
     readyNote: "Wszyscy są? To zaczynamy.",
+    keptNote: "Wybrane bilety są zapisane — można kontynuować.",
     waitHost: (name) => `Czekamy, aż ${name} zacznie`,
     start: "Wybieramy",
   },
@@ -109,6 +133,11 @@ export const pl: Dict = {
     waitOthers: (host) => `Czekamy na resztę — urnę otworzy ${host}`,
     left: (n) => `Do wyboru zostało: ${n}`,
     open: (n) => `Otwórz urnę · ${n}`,
+    notAllTitle: "Jeszcze nie wszyscy wybrali",
+    notAllText: "Jeśli otworzysz urnę teraz, trafią do niej tylko już wybrane bilety.",
+    wait: "Poczekajmy",
+    openAnyway: "Otwórz mimo to",
+    overLimit: "Limit zmniejszono — usuń nadmiarowe bilety, inaczej do urny trafią tylko pierwsze.",
     searchLabel: "Znajdź film, serial lub animację",
     placeholder: "Np. Incepcja albo Diuna…",
     placeholderFull: "Wszystkie bilety zajęte — usuń jeden, żeby podmienić",
@@ -251,7 +280,7 @@ export const pl: Dict = {
     notYourTurn: "To nie twój ruch.",
     alreadyStruck: "Ten film został już skreślony.",
     nothingToSkip: "Teraz nie ma czego pomijać.",
-    cantGoBack: "Teraz nie można wrócić do tablicy.",
+    cantGoBack: "Teraz nie można tam wrócić.",
     cantKickSelf: "Nie możesz usunąć siebie.",
     badAction: "Nieznana akcja.",
     dbMissing:

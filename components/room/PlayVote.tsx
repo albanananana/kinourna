@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
+import { BackButton } from "./GoBack";
 
 export function PlayVote() {
   const { state, me, myId, isHost } = useRoomCtx();
@@ -81,6 +82,7 @@ export function PlayVote() {
           </span>
         }
       >
+        {isHost && <BackButton to="board" size={canVote ? "lg" : "md"} />}
         {isHost && pending.length > 0 && (voted || !canVote) && (
           <Button variant="ghost" busy={busy === "close"} onClick={() => go("close", { type: "closeVote" })}>
             {t.vote.close}

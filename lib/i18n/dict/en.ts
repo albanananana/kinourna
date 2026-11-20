@@ -70,6 +70,29 @@ export const en: Dict = {
     mine: "yours",
     matched: (n) => `picked ×${n}`,
     skipAnimation: "Skip animation",
+    back: "Back",
+    backTo: (stage) => `Back to “${stage}”`,
+    movedBack: {
+      lobby: "Stepped back — we're in the room again.",
+      collect: "Stepped back to picking — you can add or swap films.",
+      board: "Stepped back to the urn.",
+    },
+  },
+
+  goBack: {
+    title: (stage) => `Back to “${stage}”?`,
+    text: {
+      lobby: "Everyone goes back to the room: you can change the settings or remove someone. Picked tickets are kept.",
+      collect: "Everyone goes back to picking: whoever missed out can add films, the rest can swap theirs. Picked tickets are kept.",
+      board: "Everyone goes back to the urn — you can choose another mode.",
+    },
+    lose: {
+      vote: "This round's votes will be reset.",
+      strike: "The strike-out starts over.",
+      result: "Tonight's pick will be reset — you'll choose again.",
+    },
+    cancel: "Stay",
+    confirm: "Go back",
   },
 
   lobby: {
@@ -88,6 +111,7 @@ export const en: Dict = {
     allowOwnHint: "Usually off, so nobody just backs their own picks.",
     aloneNote: "Wait for friends — or start now, they can join later.",
     readyNote: "Everyone here? Let's go.",
+    keptNote: "Picked tickets are saved — carry on whenever you're ready.",
     waitHost: (name) => `Waiting for ${name} to start`,
     start: "Start picking",
   },
@@ -105,6 +129,11 @@ export const en: Dict = {
     waitOthers: (host) => `Waiting for the others — ${host} will open the urn`,
     left: (n) => `Left to pick: ${n}`,
     open: (n) => `Open the urn · ${n}`,
+    notAllTitle: "Not everyone has picked yet",
+    notAllText: "If you open the urn now, only the tickets already picked go in.",
+    wait: "Wait",
+    openAnyway: "Open anyway",
+    overLimit: "The limit was lowered — remove the extras, or only your first ones go in.",
     searchLabel: "Find a film, series or cartoon",
     placeholder: "e.g. Inception or Dune…",
     placeholderFull: "All tickets filled — remove one to swap",
@@ -247,7 +276,7 @@ export const en: Dict = {
     notYourTurn: "It's not your turn.",
     alreadyStruck: "That film is already struck out.",
     nothingToSkip: "Nothing to skip right now.",
-    cantGoBack: "Can't go back to the board right now.",
+    cantGoBack: "Can't go back there right now.",
     cantKickSelf: "You can't remove yourself.",
     badAction: "Unknown action.",
     dbMissing:

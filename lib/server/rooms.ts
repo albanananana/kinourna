@@ -4,6 +4,7 @@ import {
   MAX_PER_PLAYER,
   MAX_PLAYERS,
   applyStrike,
+  canGoBack,
   cleanName,
   currentStriker,
   drawFromUrn,
@@ -15,6 +16,7 @@ import {
   mergePicks,
   pickHue,
   remainingAfterStrikes,
+  rewind,
   shuffle,
   tallyVotes,
   type Rng,
@@ -247,8 +249,8 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       return {
         state: await mutate(code, (s) => {
           if (s.phase !== "lobby") return null;
+          // `counts` is kept: after a step back to the lobby, picks are still there.
           s.phase = "collect";
-          s.counts = {};
           return s;
         }),
       };
@@ -283,8 +285,12 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       if (snapshot.phase !== "collect") return { state: snapshot };
       const subs = await store.listSecrets<Film[]>(code, "films");
       const players = new Set(snapshot.players.map((p) => p.id));
+      // The limit may have been lowered after someone picked — their first N count.
+      const limit = snapshot.settings.perPlayer;
       const { board, authors } = mergePicks(
-        subs.filter((s) => players.has(s.playerId)).map((s) => ({ playerId: s.playerId, films: s.data })),
+        subs
+          .filter((s) => players.has(s.playerId))
+          .map((s) => ({ playerId: s.playerId, films: s.data.slice(0, limit) })),
         rng,
       );
       if (board.length < 2) throw new ApiError(409, "needTwo");
@@ -413,16 +419,15 @@ export async function act(code: string, session: Partial<Session>, action: Actio
       };
     }
 
+    case "back":
     case "backToBoard": {
       hostOnly(snapshot);
+      const to = action.type === "back" ? action.to : "board";
       return {
         state: await mutate(code, (s) => {
-          if (s.phase !== "play" && s.phase !== "result") throw new ApiError(409, "cantGoBack");
-          s.phase = "board";
-          s.play = undefined;
-          s.result = undefined;
-          s.mode = undefined;
-          return s;
+          if (s.phase === to) return null; // a double tap that already landed
+          if (!canGoBack(s.phase, to)) throw new ApiError(409, "cantGoBack");
+          return rewind(s, to);
         }),
       };
     }

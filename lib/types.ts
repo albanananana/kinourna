@@ -30,6 +30,8 @@ export type BoardFilm = Film & {
 };
 
 export type Phase = "lobby" | "collect" | "board" | "play" | "result";
+/** Stages the host can send the room back to. */
+export type BackTarget = Extract<Phase, "lobby" | "collect" | "board">;
 export type Mode = "urn" | "vote" | "strike";
 
 export type Player = {
@@ -107,6 +109,7 @@ export type Action =
   | { type: "strike"; key: string }
   | { type: "skipTurn" }
   | { type: "backToBoard" }
+  | { type: "back"; to: BackTarget }
   | { type: "newRound" }
   | { type: "kick"; playerId: string }
   | { type: "rename"; name: string };

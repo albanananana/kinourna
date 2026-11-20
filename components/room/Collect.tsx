@@ -5,25 +5,35 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
 import { manualKey } from "@/lib/game";
 import { filmMeta, filmSubtitle, filmTitle, formatRating, joinNames } from "@/lib/i18n";
-import type { Film } from "@/lib/types";
+import type { Film, Player } from "@/lib/types";
 import { useI18n } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 import { Poster } from "../ui/Poster";
 import { EmptyTicket, Ticket } from "../ui/Ticket";
 import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
+import { BackButton } from "./GoBack";
 
 export function Collect() {
-  const { state, me, isHost, myId } = useRoomCtx();
+  const { state, me, isHost } = useRoomCtx();
   const { busy, go } = useBusy();
   const { t } = useI18n();
   const { perPlayer } = state.settings;
   const mine = me?.films ?? [];
   const full = mine.length >= perPlayer;
-  const total = Object.values(state.counts).reduce((a, b) => a + b, 0);
-  const waiting = state.players.filter((p) => (state.counts[p.id] ?? 0) < perPlayer);
+  // Picks over a lowered limit don't go into the urn (the server keeps the first N).
+  const countOf = (p: Player) => Math.min(state.counts[p.id] ?? 0, perPlayer);
+  const total = state.players.reduce((sum, p) => sum + countOf(p), 0);
+  const waiting = state.players.filter((p) => countOf(p) < perPlayer);
   const host = state.players.find((p) => p.id === state.hostId);
+  const [confirming, setConfirming] = useState(false);
+
+  const reveal = async () => {
+    await go("reveal", { type: "reveal" });
+    setConfirming(false);
+  };
 
   return (
     <>
@@ -47,6 +57,7 @@ export function Collect() {
                   {mine.length}/{perPlayer}
                 </p>
               </div>
+              {mine.length > perPlayer && <p className="mt-2 text-[13px] leading-snug text-amber/90">{t.collect.overLimit}</p>}
               <div className="mt-3 space-y-2.5">
                 <AnimatePresence initial={false}>
                   {mine.map((film, i) => (
@@ -54,7 +65,8 @@ export function Collect() {
                       key={film.key}
                       layout
                       initial={{ opacity: 0, x: 40, rotate: 3 }}
-                      animate={{ opacity: 1, x: 0, rotate: 0 }}
+                      // Tickets over a lowered limit stay dimmed until removed.
+                      animate={{ opacity: i >= perPlayer ? 0.45 : 1, x: 0, rotate: 0 }}
                       exit={{ opacity: 0, x: -30, transition: { duration: 0.18 } }}
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     >
@@ -73,25 +85,7 @@ export function Collect() {
               </div>
 
               <p className="label mt-8">{t.collect.whoPicked}</p>
-              <ul className="mt-3 space-y-2">
-                {state.players.map((p) => {
-                  const n = state.counts[p.id] ?? 0;
-                  return (
-                    <li key={p.id} className="flex items-center gap-3">
-                      <Avatar player={p} size={26} />
-                      <span className="min-w-0 flex-1 truncate text-[14px]">
-                        {p.name}
-                        {p.id === myId && <span className="text-dim">{t.room.youShort}</span>}
-                      </span>
-                      <span className="flex gap-1" aria-label={t.collect.progress(n, perPlayer)}>
-                        {Array.from({ length: perPlayer }, (_, i) => (
-                          <span key={i} className={`h-2.5 w-4 rounded-[2px] transition ${i < n ? "bg-paper" : "bg-ink-3"}`} />
-                        ))}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <PickProgress players={state.players} countOf={countOf} />
             </div>
           </aside>
         </div>
@@ -108,13 +102,80 @@ export function Collect() {
                 : t.collect.left(perPlayer - mine.length)
         }
       >
+        {isHost && <BackButton to="lobby" />}
         {isHost && (
-          <Button size="lg" disabled={total < 2} busy={busy === "reveal"} onClick={() => go("reveal", { type: "reveal" })}>
+          <Button
+            size="lg"
+            disabled={total < 2}
+            busy={busy === "reveal" && !confirming}
+            onClick={() => (waiting.length > 0 ? setConfirming(true) : reveal())}
+          >
             {t.collect.open(total)}
           </Button>
         )}
       </ActionBar>
+
+      {/* Opening early is allowed (someone may have wandered off), but never by accident. */}
+      {isHost && confirming && (
+        <Dialog
+          title={waiting.length > 0 ? t.collect.notAllTitle : t.collect.allIn}
+          onClose={() => setConfirming(false)}
+          actions={
+            <>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>
+                {t.collect.wait}
+              </Button>
+              <Button disabled={total < 2} busy={busy === "reveal"} onClick={reveal}>
+                {waiting.length > 0 ? t.collect.openAnyway : t.collect.open(total)}
+              </Button>
+            </>
+          }
+        >
+          {waiting.length > 0 && (
+            <>
+              <p>{t.collect.notAllText}</p>
+              <PickProgress players={waiting} countOf={countOf} className="mt-4" />
+            </>
+          )}
+        </Dialog>
+      )}
     </>
+  );
+}
+
+/** Avatars with a little strip of filled/empty ticket slots per player. */
+function PickProgress({
+  players,
+  countOf,
+  className = "mt-3",
+}: {
+  players: Player[];
+  countOf: (p: Player) => number;
+  className?: string;
+}) {
+  const { state, myId } = useRoomCtx();
+  const { t } = useI18n();
+  const { perPlayer } = state.settings;
+  return (
+    <ul className={`space-y-2 ${className}`}>
+      {players.map((p) => {
+        const n = countOf(p);
+        return (
+          <li key={p.id} className="flex items-center gap-3">
+            <Avatar player={p} size={26} />
+            <span className="min-w-0 flex-1 truncate text-[14px] text-cream">
+              {p.name}
+              {p.id === myId && <span className="text-dim">{t.room.youShort}</span>}
+            </span>
+            <span className="flex gap-1" aria-label={t.collect.progress(n, perPlayer)}>
+              {Array.from({ length: perPlayer }, (_, i) => (
+                <span key={i} className={`h-2.5 w-4 rounded-[2px] transition ${i < n ? "bg-paper" : "bg-ink-3"}`} />
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -17,6 +17,7 @@ export function Lobby() {
   const { t } = useI18n();
   const host = state.players.find((p) => p.id === state.hostId);
   const { perPlayer, allowOwn } = state.settings;
+  const picksKept = Object.values(state.counts).some((n) => n > 0);
 
   return (
     <>
@@ -126,9 +127,11 @@ export function Lobby() {
       <ActionBar
         note={
           isHost
-            ? state.players.length < 2
-              ? t.lobby.aloneNote
-              : t.lobby.readyNote
+            ? picksKept
+              ? t.lobby.keptNote
+              : state.players.length < 2
+                ? t.lobby.aloneNote
+                : t.lobby.readyNote
             : (
                 <span className="dots">{t.lobby.waitHost(host?.name ?? t.room.hostFallback)}</span>
               )

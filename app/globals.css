@@ -248,10 +248,32 @@ body::after {
   }
 }
 
+/* Confirmation dialogs rise from the action bar. */
+.sheet[open] {
+  animation: sheet-in 0.28s var(--ease-out-expo);
+}
+.sheet[open]::backdrop {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  ::backdrop {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;

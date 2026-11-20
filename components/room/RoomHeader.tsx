@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { PHASES, canGoBack } from "@/lib/game";
 import type { Dict } from "@/lib/i18n";
-import type { Phase } from "@/lib/types";
 import { useI18n } from "../i18n/I18nProvider";
 import { LangSwitch } from "../i18n/LangSwitch";
 import { Avatar } from "../ui/Avatar";
 import { useRoomCtx } from "./context";
-
-const RAIL: Phase[] = ["lobby", "collect", "board", "play", "result"];
 
 export async function shareRoom(code: string, notify: (m: string) => void, t: Dict) {
   const url = `${window.location.origin}/r/${code}`;
@@ -26,9 +24,9 @@ export async function shareRoom(code: string, notify: (m: string) => void, t: Di
 }
 
 export function RoomHeader() {
-  const { state, notify, myId } = useRoomCtx();
+  const { state, notify, myId, isHost, askBack } = useRoomCtx();
   const { t } = useI18n();
-  const current = RAIL.indexOf(state.phase);
+  const current = PHASES.indexOf(state.phase);
   // Three faces fit next to the language and code chips on a phone.
   const visible = state.players.slice(0, 3);
   const extra = state.players.length - visible.length;
@@ -69,7 +67,7 @@ export function RoomHeader() {
         </div>
       </div>
       <nav aria-label={t.room.stages} className="mx-auto flex max-w-6xl gap-0 overflow-x-auto px-4 pb-2 md:px-8 scrollbar-none">
-        {RAIL.map((phase, i) => (
+        {PHASES.map((phase, i) => (
           <span
             key={phase}
             aria-current={i === current ? "step" : undefined}
@@ -78,7 +76,20 @@ export function RoomHeader() {
             }`}
           >
             {i > 0 && <span className={`mx-2 h-px w-4 ${i <= current ? "bg-muted/50" : "bg-line-strong"}`} />}
-            {t.room.rail[phase]}
+            {isHost && canGoBack(state.phase, phase) ? (
+              // Past stages are links back for the host (with a confirmation).
+              <button
+                type="button"
+                onClick={() => askBack(phase)}
+                title={t.room.backTo(t.room.rail[phase])}
+                aria-label={t.room.backTo(t.room.rail[phase])}
+                className="-mx-1 -my-1.5 rounded px-1 py-1.5 uppercase underline decoration-muted/50 decoration-dotted underline-offset-[3px] transition hover:text-cream hover:decoration-cream/70"
+              >
+                {t.room.rail[phase]}
+              </button>
+            ) : (
+              t.room.rail[phase]
+            )}
           </span>
         ))}
       </nav>
