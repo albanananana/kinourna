@@ -1,4 +1,4 @@
-import { json } from "@/lib/server/http";
+import { handle, json } from "@/lib/server/http";
 import { getStore } from "@/lib/server/store";
 
 /**
@@ -10,6 +10,8 @@ export async function GET(req: Request) {
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
     return json({ error: "unauthorized" }, 401);
   }
-  const removed = await getStore().deleteRoomsOlderThan(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
-  return json({ ok: true, removed });
+  return handle(async () => {
+    const removed = await getStore().deleteRoomsOlderThan(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
+    return { ok: true, removed };
+  });
 }

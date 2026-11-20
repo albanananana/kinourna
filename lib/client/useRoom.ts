@@ -18,21 +18,30 @@ export function useRoom(code: string) {
   const [status, setStatus] = useState<RoomStatus>("loading");
   const [session, setSessionState] = useState<Session | null>(null);
   const [me, setMe] = useState<MeData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const rev = useRef(0);
+  const misses = useRef(0);
 
   const accept = useCallback((next: RoomState | undefined | null) => {
     if (!next || next.rev < rev.current) return;
     rev.current = next.rev;
+    misses.current = 0;
     setState(next);
     setStatus("ready");
   }, []);
 
+  // Once a room has loaded, a single failed poll (network blip, cold server)
+  // must not throw everyone onto the "room not found" screen — only several
+  // misses in a row mean the room is really gone.
   const refresh = useCallback(async () => {
     try {
       const { state: next } = await api.room(code);
       accept(next);
     } catch (err) {
-      if (err instanceof RequestError && err.status === 404) setStatus("missing");
+      if (err instanceof RequestError && err.status === 404) {
+        misses.current += 1;
+        if (rev.current === 0 || misses.current >= 3) setStatus("missing");
+      }
     }
   }, [code, accept]);
 
@@ -48,7 +57,9 @@ export function useRoom(code: string) {
         accept(next);
       })
       .catch((err) => {
-        if (!cancelled && err instanceof RequestError && err.status === 404) setStatus("missing");
+        if (cancelled) return;
+        if (err instanceof RequestError && err.status === 404) setStatus("missing");
+        else setError((err as Error).message);
       });
     return () => {
       cancelled = true;
@@ -122,7 +133,7 @@ export function useRoom(code: string) {
     [code, session, accept],
   );
 
-  return { state, status, session, joined, me, act, setSession, refresh };
+  return { state, status, error, session, joined, me, act, setSession, refresh };
 }
 
 export type RoomApi = ReturnType<typeof useRoom>;

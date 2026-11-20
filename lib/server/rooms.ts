@@ -21,6 +21,7 @@ import {
 } from "../game";
 import type { Action, Film, MeData, Player, RoomState, Session } from "../types";
 import { newPlayerId, signSession, verifySession } from "./auth";
+import { ApiError } from "./errors";
 import { getStore } from "./store";
 
 const rng: Rng = (n) => (n <= 1 ? 0 : randomInt(n));
@@ -28,14 +29,7 @@ const rng: Rng = (n) => (n <= 1 ? 0 : randomInt(n));
 /** Secret row that stores film authorship for the whole room. */
 const ROOM_ROW = "__room";
 
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { ApiError };
 
 const NOT_FOUND = () => new ApiError(404, "Комната не найдена — проверь код.");
 

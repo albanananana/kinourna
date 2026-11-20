@@ -32,6 +32,22 @@ export function RoomApp({ code }: { code: string }) {
     );
   }
 
+  if (!room.state && room.error) {
+    return (
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
+        <p className="label text-signal">Не получилось открыть зал</p>
+        <p className="mt-4 text-[16px] leading-relaxed text-cream/85">{room.error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-8 inline-flex h-12 w-fit items-center rounded-md border border-line-strong px-5 font-display text-[21px] font-bold uppercase transition hover:border-cream/50"
+        >
+          Попробовать ещё раз
+        </button>
+      </main>
+    );
+  }
+
   if (!room.state) return <RoomLoading />;
 
   if (!room.joined || !room.session) {

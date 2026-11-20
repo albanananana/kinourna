@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { RoomState } from "../types";
+import { ApiError } from "./errors";
 
 /**
  * Persistence for rooms. Public room state lives in `rooms` (readable by
@@ -163,8 +164,15 @@ export function getStore(): Store {
   if (url && key) {
     store = new SupabaseStore(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }));
   } else {
+    // On Vercel every request may hit a different server instance, so an
+    // in-memory store would make rooms flicker between "found" and "not
+    // found". Refuse loudly instead of half-working.
     if (process.env.VERCEL) {
-      console.warn("[kinourna] Supabase env vars are missing — falling back to an in-memory store, rooms will not sync.");
+      console.error("[kinourna] Supabase env vars are missing on Vercel.");
+      throw new ApiError(
+        503,
+        "Сервер не подключён к базе: добавь ключи Supabase в Vercel → Settings → Environment Variables и пересобери проект.",
+      );
     }
     store = new MemoryStore();
   }
