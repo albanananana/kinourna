@@ -106,8 +106,18 @@ export function FilmSheet({
       dialogRef={ref}
       className="w-[min(560px,calc(100%-24px))] max-h-[min(calc(100dvh-72px),880px)] overflow-hidden open:flex open:flex-col"
     >
-      {/* Focused on open (tabIndex −1): the reader starts at the top, arrow keys scroll. */}
-      <div ref={scroller} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none">
+      {/*
+        Focused on open (tabIndex −1): the reader starts at the top, arrow keys scroll.
+        `flex-auto`, not `flex-1`: older iOS Safari reads a 0% basis in an auto-height
+        column as zero and collapses this to nothing, leaving only the footer.
+        Inline `outline` because the global :focus-visible ring outranks utilities.
+      */}
+      <div
+        ref={scroller}
+        tabIndex={-1}
+        style={{ outline: "none" }}
+        className="min-h-0 flex-auto overflow-y-auto overscroll-contain"
+      >
         {(hero || (playing && trailer)) && (
           <div className="relative aspect-video w-full overflow-hidden bg-ink-2">
             {playing && trailer ? (
