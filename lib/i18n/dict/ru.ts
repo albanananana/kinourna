@@ -255,6 +255,26 @@ export const ru = {
     whoPickedWhat: "Кто что загадал",
   },
 
+  /** The film card that opens from a poster. */
+  film: {
+    about: (t: string) => `О фильме «${t}»`,
+    close: "Закрыть",
+    trailer: "Трейлер",
+    trailerFrame: (t: string) => `Трейлер «${t}»`,
+    makers: (tv: boolean, n: number): string => (tv ? (n > 1 ? "Создатели" : "Создатель") : n > 1 ? "Режиссёры" : "Режиссёр"),
+    cast: "В ролях",
+    runtime: (min: number) => {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return [h ? `${h} ч` : "", m ? `${m} мин` : ""].filter(Boolean).join(" ");
+    },
+    seasons: (n: number) => `${n} ${plural("ru", n, { one: "сезон", few: "сезона", many: "сезонов", other: "сезона" })}`,
+    noOverview: "Описания пока нет — зато можно глянуть трейлер.",
+    manual: "Этот фильм вписали вручную, без каталога, поэтому подробностей нет.",
+    vote: "Готов смотреть",
+    unvote: "Снять отметку",
+  },
+
   /** Server errors arrive as codes; `{n}` is filled from the error params. */
   errors: {
     notFound: "Комната не найдена — проверь код.",

@@ -250,6 +250,25 @@ export const en: Dict = {
     whoPickedWhat: "Who picked what",
   },
 
+  film: {
+    about: (t) => `About “${t}”`,
+    close: "Close",
+    trailer: "Trailer",
+    trailerFrame: (t) => `“${t}” trailer`,
+    makers: (tv, n) => (tv ? (n > 1 ? "Creators" : "Creator") : n > 1 ? "Directors" : "Director"),
+    cast: "Starring",
+    runtime: (min) => {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return [h ? `${h}h` : "", m ? `${m}m` : ""].filter(Boolean).join(" ");
+    },
+    seasons: (n) => `${n} ${plural("en", n, { one: "season", other: "seasons" })}`,
+    noOverview: "No synopsis yet — but there's the trailer.",
+    manual: "This one was typed in by hand, not picked from the catalogue, so there are no details.",
+    vote: "I'd watch it",
+    unvote: "Unmark",
+  },
+
   errors: {
     notFound: "Room not found — check the code.",
     busy: "Too much happening at once — try again.",

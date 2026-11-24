@@ -1,5 +1,5 @@
 import type { Lang } from "../i18n/config";
-import type { Action, Film, MeData, RoomState, Session } from "../types";
+import type { Action, Film, FilmExtra, MediaType, MeData, RoomState, Session } from "../types";
 
 /** A failed request; `code` is a key of the dictionary's `errors`. */
 export class RequestError extends Error {
@@ -56,4 +56,7 @@ export const api = {
 
   search: (q: string, lang: Lang, signal?: AbortSignal) =>
     request<{ results: Film[]; demo: boolean }>(`/api/search?q=${encodeURIComponent(q)}&lang=${lang}`, { signal }),
+
+  film: (type: MediaType, id: number, lang: Lang, signal?: AbortSignal) =>
+    request<{ extra: FilmExtra | null }>(`/api/film?type=${type}&id=${id}&lang=${lang}`, { signal }),
 };

@@ -24,6 +24,24 @@ export type Film = {
   animation?: boolean;
 };
 
+/**
+ * What the film card fetches when someone opens it, in the viewer's language.
+ * Never stored in the room — rooms keep only what every screen needs.
+ */
+export type FilmExtra = {
+  overview?: string;
+  genres: string[];
+  /** Movies: minutes. */
+  runtime?: number;
+  /** Series: how many seasons so far. */
+  seasons?: number;
+  /** Directors for movies, creators for series. */
+  makers: string[];
+  cast: string[];
+  /** YouTube video id of the best trailer for this language. */
+  trailer?: string;
+};
+
 export type BoardFilm = Film & {
   /** How many players picked this title — doubles as tickets in the urn. */
   weight: number;

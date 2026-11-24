@@ -2,7 +2,8 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
-import { TMDB_LANG, filmMeta, filmOverview, filmSubtitle, filmTitle, formatRating, joinNames } from "@/lib/i18n";
+import { tmdbPageUrl, trailerSearchUrl } from "@/lib/film-links";
+import { filmMeta, filmOverview, filmSubtitle, filmTitle, formatRating, joinNames } from "@/lib/i18n";
 import { backdropUrl, posterUrl } from "@/lib/tmdb-image";
 import type { BoardFilm, Result as ResultT } from "@/lib/types";
 import { useI18n } from "../i18n/I18nProvider";
@@ -15,6 +16,7 @@ import { Ticket } from "../ui/Ticket";
 import { ActionBar, Page } from "./ActionBar";
 import { useBusy, useRoomCtx, useTwoStep } from "./context";
 import { Drum } from "./Drum";
+import { FilmSheet } from "./FilmSheet";
 
 const INTRO_MS: Record<ResultT["via"], number> = { urn: 3000, vote: 2300, strike: 1500 };
 
@@ -143,8 +145,8 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
   const authorIds = result.authors[film.key] ?? [];
   const authors = authorIds.map((id) => players.get(id)).filter((p) => !!p);
   const bg = backdropUrl(film.backdrop) ?? posterUrl(film.poster, "w780");
-  const trailer = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${film.t?.en?.title ?? film.originalTitle ?? film.title} ${film.year ?? ""} trailer`)}`;
-  const tmdb = film.tmdbId && film.mediaType ? `https://www.themoviedb.org/${film.mediaType}/${film.tmdbId}?language=${TMDB_LANG[lang]}` : undefined;
+  const trailer = trailerSearchUrl(film);
+  const tmdb = tmdbPageUrl(film, lang);
   const excluded = state.play?.kind === "urn" ? state.play.excluded : [];
   const urnLeft = state.board.filter((f) => f.key !== film.key && !excluded.includes(f.key)).length;
 
@@ -242,7 +244,9 @@ function Reveal({ result, film }: { result: ResultT; film: BoardFilm }) {
 function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
   const { state, players } = useRoomCtx();
   const { t, lang } = useI18n();
+  const [info, setInfo] = useState<string | null>(null);
   const byKey = new Map(state.board.map((f) => [f.key, f]));
+  const infoFilm = info ? byKey.get(info) : undefined;
   const nameOf = (key: string) => {
     const f = byKey.get(key);
     return f ? filmTitle(f, lang) : "?";
@@ -328,9 +332,17 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
                   <div className="text-[14px]">{player.name}</div>
                   <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
                     {films.map((f) => (
-                      <div key={f.key} className={`w-12 shrink-0 ${f.key === film.key ? "" : "opacity-55"}`} title={filmTitle(f, lang)}>
+                      <button
+                        key={f.key}
+                        type="button"
+                        onClick={() => setInfo(f.key)}
+                        aria-haspopup="dialog"
+                        aria-label={t.film.about(filmTitle(f, lang))}
+                        title={filmTitle(f, lang)}
+                        className={`w-12 shrink-0 rounded transition hover:opacity-100 ${f.key === film.key ? "" : "opacity-55"}`}
+                      >
                         <Poster film={f} size="w92" rounded="rounded" className={f.key === film.key ? "ring-2 ring-amber" : ""} />
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -339,6 +351,7 @@ function Details({ result, film }: { result: ResultT; film: BoardFilm }) {
           </ul>
         </div>
       )}
+      {infoFilm && <FilmSheet film={infoFilm} onClose={() => setInfo(null)} />}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
+import { FilmSheet } from "./FilmSheet";
 import { BackButton } from "./GoBack";
 
 export const MODES: { id: Mode; icon: ReactNode }[] = [
@@ -44,6 +45,8 @@ export function Board() {
   const { state, isHost, me } = useRoomCtx();
   const { busy, go } = useBusy();
   const [mode, setMode] = useState<Mode>("urn");
+  const [info, setInfo] = useState<string | null>(null);
+  const infoFilm = state.board.find((f) => f.key === info);
   const host = state.players.find((p) => p.id === state.hostId);
   const own = new Set(me?.own ?? []);
   const { t } = useI18n();
@@ -64,6 +67,7 @@ export function Board() {
               key={film.key}
               film={film}
               index={i}
+              onInfo={() => setInfo(film.key)}
               badge={
                 film.weight > 1 ? (
                   <Badge tone="amber">{t.room.matched(film.weight)}</Badge>
@@ -74,6 +78,7 @@ export function Board() {
             />
           ))}
         </FilmGrid>
+        {infoFilm && <FilmSheet film={infoFilm} onClose={() => setInfo(null)} />}
 
         <div className="mt-12">
           <p className="label">{isHost ? t.board.howPick : t.board.hostChooses(hostName)}</p>

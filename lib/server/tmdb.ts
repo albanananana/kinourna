@@ -2,7 +2,7 @@ import "server-only";
 import { cacheLife } from "next/cache";
 import { normalizeTitle } from "../game";
 import { LOCALES, TMDB_LANG, type Lang } from "../i18n/config";
-import type { Film, Loc, MediaType } from "../types";
+import type { Film, FilmExtra, Loc, MediaType } from "../types";
 import { MOCK_FILMS } from "./mock-films";
 
 const API = "https://api.themoviedb.org/3";
@@ -158,6 +158,66 @@ export async function localizedDetails(type: MediaType, id: number): Promise<Fil
   if (!tmdbEnabled()) return null;
   try {
     return await detailsTmdb(type, id);
+  } catch {
+    return null;
+  }
+}
+
+type TmdbVideo = { key: string; site?: string; type?: string; official?: boolean; iso_639_1?: string | null };
+
+type TmdbFull = {
+  overview?: string;
+  genres?: { id: number; name: string }[];
+  runtime?: number | null;
+  number_of_seasons?: number;
+  created_by?: { name: string }[];
+  credits?: { cast?: { name: string; order?: number }[]; crew?: { name: string; job?: string }[] };
+  videos?: { results?: TmdbVideo[] };
+};
+
+const TRAILER_TYPES = ["Trailer", "Teaser"];
+
+/** A trailer in the viewer's language beats an English one; a trailer beats a teaser; official beats fan uploads. */
+function bestTrailer(videos: TmdbVideo[] | undefined, lang: Lang): string | undefined {
+  const rank = (v: TmdbVideo) => [
+    v.iso_639_1 === lang ? 0 : v.iso_639_1 === "en" ? 1 : 2,
+    TRAILER_TYPES.indexOf(v.type ?? ""),
+    v.official ? 0 : 1,
+  ];
+  return videos
+    ?.filter((v) => v.site === "YouTube" && TRAILER_TYPES.includes(v.type ?? "") && /^[\w-]{6,20}$/.test(v.key))
+    .map((v) => ({ key: v.key, r: rank(v) }))
+    .sort((a, b) => a.r[0] - b.r[0] || a.r[1] - b.r[1] || a.r[2] - b.r[2])[0]?.key;
+}
+
+const names = (list: { name: string }[] | undefined, n: number) =>
+  [...new Set((list ?? []).map((p) => p.name?.trim()).filter(Boolean))].slice(0, n);
+
+async function extraTmdb(type: MediaType, id: number, lang: Lang): Promise<FilmExtra> {
+  "use cache";
+  cacheLife("days");
+  const d = await tmdb<TmdbFull>(`/${type}/${id}`, {
+    language: TMDB_LANG[lang],
+    append_to_response: "credits,videos",
+    include_video_language: [...new Set([lang, "en", "null"])].join(","),
+  });
+  const cast = [...(d.credits?.cast ?? [])].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  return {
+    overview: d.overview?.trim() || undefined,
+    genres: names(d.genres, 4),
+    runtime: type === "movie" ? d.runtime || undefined : undefined,
+    seasons: type === "tv" ? d.number_of_seasons || undefined : undefined,
+    makers: type === "movie" ? names(d.credits?.crew?.filter((c) => c.job === "Director"), 2) : names(d.created_by, 2),
+    cast: names(cast, 4),
+    trailer: bestTrailer(d.videos?.results, lang),
+  };
+}
+
+/** Genres, runtime, people and a trailer for one title; null when TMDB is off or fails. */
+export async function filmExtra(type: MediaType, id: number, lang: Lang): Promise<FilmExtra | null> {
+  if (!tmdbEnabled()) return null;
+  try {
+    return await extraTmdb(type, id, lang);
   } catch {
     return null;
   }

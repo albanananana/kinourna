@@ -10,12 +10,14 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { FilmCard, FilmGrid } from "./FilmCard";
+import { FilmSheet } from "./FilmSheet";
 import { BackButton } from "./GoBack";
 
 export function PlayStrike() {
   const { state, myId, isHost, players } = useRoomCtx();
   const { busy, go } = useBusy();
   const [selected, setSelected] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const { t, lang } = useI18n();
   if (state.play?.kind !== "strike") return null;
   const play = state.play;
@@ -26,6 +28,7 @@ export function PlayStrike() {
   const left = remainingAfterStrikes(state.board, play);
   const struckBy = new Map(play.struck.map((s) => [s.key, s.by]));
   const target = selected && left.some((f) => f.key === selected) ? state.board.find((f) => f.key === selected) : undefined;
+  const infoFilm = state.board.find((f) => f.key === info);
 
   const strike = async () => {
     if (!target) return;
@@ -91,11 +94,31 @@ export function PlayStrike() {
                   state={by ? "struck" : selected === film.key ? "targeted" : myTurn ? "pickable" : "idle"}
                   caption={who ? `✕ ${who}` : undefined}
                   onClick={myTurn && !by ? () => setSelected(selected === film.key ? null : film.key) : undefined}
+                  onInfo={() => setInfo(film.key)}
                 />
               );
             })}
           </FilmGrid>
         </div>
+        {infoFilm && (
+          <FilmSheet
+            film={infoFilm}
+            onClose={() => setInfo(null)}
+            action={
+              myTurn && !struckBy.has(infoFilm.key)
+                ? {
+                    label: t.strike.strikeBtn,
+                    busy: busy === "strike",
+                    run: async () => {
+                      const ok = await go("strike", { type: "strike", key: infoFilm.key });
+                      if (ok) setSelected(null);
+                      return ok;
+                    },
+                  }
+                : undefined
+            }
+          />
+        )}
       </Page>
 
       <ActionBar

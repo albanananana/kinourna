@@ -254,6 +254,25 @@ export const pl: Dict = {
     whoPickedWhat: "Kto co wybrał",
   },
 
+  film: {
+    about: (t) => `O filmie „${t}”`,
+    close: "Zamknij",
+    trailer: "Zwiastun",
+    trailerFrame: (t) => `Zwiastun „${t}”`,
+    makers: (tv, n) => (tv ? (n > 1 ? "Twórcy" : "Twórca") : "Reżyseria"),
+    cast: "Obsada",
+    runtime: (min) => {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return [h ? `${h} godz.` : "", m ? `${m} min` : ""].filter(Boolean).join(" ");
+    },
+    seasons: (n) => `${n} ${plural("pl", n, { one: "sezon", few: "sezony", many: "sezonów", other: "sezonu" })}`,
+    noOverview: "Opisu jeszcze nie ma — ale jest zwiastun.",
+    manual: "Ten tytuł wpisano ręcznie, spoza katalogu, więc nie ma szczegółów.",
+    vote: "Chętnie obejrzę",
+    unvote: "Odznacz",
+  },
+
   errors: {
     notFound: "Nie znaleziono pokoju — sprawdź kod.",
     busy: "Za dużo akcji naraz — spróbuj ponownie.",

@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { Accent, ActionBar, Heading, Page } from "./ActionBar";
 import { useBusy, useRoomCtx } from "./context";
 import { Badge, FilmCard, FilmGrid } from "./FilmCard";
+import { FilmSheet } from "./FilmSheet";
 import { BackButton } from "./GoBack";
 
 export function PlayVote() {
@@ -18,6 +19,8 @@ export function PlayVote() {
   const own = new Set(me?.own ?? []);
   const allowOwn = state.settings.allowOwn;
   const [picked, setPicked] = useState<Set<string> | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const infoFilm = state.board.find((f) => f.key === info);
   const current = picked ?? new Set(me?.vote ?? []);
   const voted = !!play?.voted.includes(myId);
   const canVote = !!play?.voters.includes(myId);
@@ -55,12 +58,31 @@ export function PlayVote() {
                 index={i}
                 state={blocked ? "disabled" : current.has(film.key) ? "selected" : "idle"}
                 onClick={canVote && !blocked ? () => toggle(film.key) : undefined}
+                onInfo={() => setInfo(film.key)}
                 badge={mine ? <Badge>{t.room.mine}</Badge> : undefined}
                 label={`${filmTitle(film, lang)}${current.has(film.key) ? t.vote.marked : ""}`}
               />
             );
           })}
         </FilmGrid>
+        {infoFilm && (
+          <FilmSheet
+            film={infoFilm}
+            onClose={() => setInfo(null)}
+            action={
+              canVote && (allowOwn || !own.has(infoFilm.key))
+                ? {
+                    label: current.has(infoFilm.key) ? t.film.unvote : t.film.vote,
+                    variant: current.has(infoFilm.key) ? "ghost" : "primary",
+                    run: () => {
+                      toggle(infoFilm.key);
+                      return true;
+                    },
+                  }
+                : undefined
+            }
+          />
+        )}
       </Page>
 
       <ActionBar
